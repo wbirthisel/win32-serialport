@@ -14,71 +14,58 @@ use strict;
 		#### API declarations ####
 no strict 'subs';	# these may be imported someday
 
-use vars qw(
-	$_CloseHandle		$_CreateFile		$_GetCommState
-	$_ReadFile		$_SetCommState		$_SetupComm
-	$_PurgeComm		$_CreateEvent		$_GetCommTimeouts
-	$_SetCommTimeouts	$_GetCommProperties	$_ClearCommBreak
-	$_ClearCommError	$_EscapeCommFunction	$_GetCommConfig
-	$_GetCommMask		$_GetCommModemStatus	$_SetCommBreak
-	$_SetCommConfig		$_SetCommMask		$_TransmitCommChar
-	$_WaitCommEvent		$_WriteFile		$_ResetEvent
-	$_GetOverlappedResult
-);
-
-$_CreateFile = new Win32::API("kernel32", "CreateFile",
+our $_CreateFile = Win32::API->new("kernel32", "CreateFile",
 	 [P, N, N, N, N, N, N], N);
-$_CloseHandle = new Win32::API("kernel32", "CloseHandle", [N], N);
-$_GetCommState = new Win32::API("kernel32", "GetCommState", [N, P], I);
-$_SetCommState = new Win32::API("kernel32", "SetCommState", [N, P], I);
-$_SetupComm = new Win32::API("kernel32", "SetupComm", [N, N, N], I);
-$_PurgeComm = new Win32::API("kernel32", "PurgeComm", [N, N], I);
-$_CreateEvent = new Win32::API("kernel32", "CreateEvent", [P, I, I, P], N);
-$_GetCommTimeouts = new Win32::API("kernel32", "GetCommTimeouts",
+our $_CloseHandle = Win32::API->new("kernel32", "CloseHandle", [N], N);
+our $_GetCommState = Win32::API->new("kernel32", "GetCommState", [N, P], I);
+our $_SetCommState = Win32::API->new("kernel32", "SetCommState", [N, P], I);
+our $_SetupComm = Win32::API->new("kernel32", "SetupComm", [N, N, N], I);
+our $_PurgeComm = Win32::API->new("kernel32", "PurgeComm", [N, N], I);
+our $_CreateEvent = Win32::API->new("kernel32", "CreateEvent", [P, I, I, P], N);
+our $_GetCommTimeouts = Win32::API->new("kernel32", "GetCommTimeouts",
 	 [N, P], I);
-$_SetCommTimeouts = new Win32::API("kernel32", "SetCommTimeouts",
+our $_SetCommTimeouts = Win32::API->new("kernel32", "SetCommTimeouts",
 	 [N, P], I);
-$_GetCommProperties = new Win32::API("kernel32", "GetCommProperties",
+our $_GetCommProperties = Win32::API->new("kernel32", "GetCommProperties",
 	 [N, P], I);
-$_ReadFile = new Win32::API("kernel32", "ReadFile", [N, P, N, P, P], I);
-$_WriteFile = new Win32::API("kernel32", "WriteFile", [N, P, N, P, P], I);
-$_TransmitCommChar = new Win32::API("kernel32", "TransmitCommChar", [N, I], I);
-$_ClearCommBreak = new Win32::API("kernel32", "ClearCommBreak", [N], I);
-$_SetCommBreak = new Win32::API("kernel32", "SetCommBreak", [N], I);
-$_ClearCommError = new Win32::API("kernel32", "ClearCommError", [N, P, P], I);
-$_EscapeCommFunction = new Win32::API("kernel32", "EscapeCommFunction",
+our $_ReadFile = Win32::API->new("kernel32", "ReadFile", [N, P, N, P, P], I);
+our $_WriteFile = Win32::API->new("kernel32", "WriteFile", [N, P, N, P, P], I);
+our $_TransmitCommChar = Win32::API->new("kernel32", "TransmitCommChar", [N, I], I);
+our $_ClearCommBreak = Win32::API->new("kernel32", "ClearCommBreak", [N], I);
+our $_SetCommBreak = Win32::API->new("kernel32", "SetCommBreak", [N], I);
+our $_ClearCommError = Win32::API->new("kernel32", "ClearCommError", [N, P, P], I);
+our $_EscapeCommFunction = Win32::API->new("kernel32", "EscapeCommFunction",
 	 [N, N], I);
-$_GetCommModemStatus = new Win32::API("kernel32", "GetCommModemStatus",
+our $_GetCommModemStatus = Win32::API->new("kernel32", "GetCommModemStatus",
 	 [N, P], I);
-$_GetOverlappedResult = new Win32::API("kernel32", "GetOverlappedResult",
+our $_GetOverlappedResult = Win32::API->new("kernel32", "GetOverlappedResult",
 	 [N, P, P, I], I);
 
 #### these are not used yet
 
-$_GetCommConfig = new Win32::API("kernel32", "GetCommConfig", [N, P, P], I);
-$_GetCommMask = new Win32::API("kernel32", "GetCommMask", [N, P], I);
-$_SetCommConfig = new Win32::API("kernel32", "SetCommConfig", [N, P, N], I);
-$_SetCommMask = new Win32::API("kernel32", "SetCommMask", [N, N], I);
-$_WaitCommEvent = new Win32::API("kernel32", "WaitCommEvent", [N, P, P], I);
-$_ResetEvent = new Win32::API("kernel32", "ResetEvent", [N], I);
+our $_GetCommConfig = Win32::API->new("kernel32", "GetCommConfig", [N, P, P], I);
+our $_GetCommMask = Win32::API->new("kernel32", "GetCommMask", [N, P], I);
+our $_SetCommConfig = Win32::API->new("kernel32", "SetCommConfig", [N, P, N], I);
+our $_SetCommMask = Win32::API->new("kernel32", "SetCommMask", [N, N], I);
+our $_WaitCommEvent = Win32::API->new("kernel32", "WaitCommEvent", [N, P, P], I);
+our $_ResetEvent = Win32::API->new("kernel32", "ResetEvent", [N], I);
 
 use strict;
 
-use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $RBUF_Size);
-$VERSION = '0.19';
-$RBUF_Size = 4096;
+our $VERSION = '0.19';
+our $RBUF_Size = 4096;
 
 require Exporter;
 ## require AutoLoader;
 
-@ISA = qw(Exporter);
+our @ISA = qw(Exporter);
 # Items to export into callers namespace by default. Note: do not export
 # names by default without a very good reason. Use EXPORT_OK instead.
 # Do not simply export all your public functions/methods/constants.
 
-@EXPORT= qw();
-@EXPORT_OK= qw();
-%EXPORT_TAGS = (STAT	=> [qw( BM_fCtsHold	BM_fDsrHold
+our @EXPORT= qw();
+our @EXPORT_OK= qw();
+our %EXPORT_TAGS = (STAT	=> [qw( BM_fCtsHold	BM_fDsrHold
 				BM_fRlsdHold	BM_fXoffHold
 				BM_fXoffSent	BM_fEof
 				BM_fTxim	BM_AllBits
@@ -294,187 +281,188 @@ sub ResetEvent {
 #### compatible with ActiveState ####
 
 ## COMMPROP structure
-sub SP_SERIALCOMM	{ 0x1 }
-sub BAUD_075		{ 0x1 }
-sub BAUD_110		{ 0x2 }
-sub BAUD_134_5		{ 0x4 }
-sub BAUD_150		{ 0x8 }
-sub BAUD_300		{ 0x10 }
-sub BAUD_600		{ 0x20 }
-sub BAUD_1200		{ 0x40 }
-sub BAUD_1800		{ 0x80 }
-sub BAUD_2400		{ 0x100 }
-sub BAUD_4800		{ 0x200 }
-sub BAUD_7200		{ 0x400 }
-sub BAUD_9600		{ 0x800 }
-sub BAUD_14400		{ 0x1000 }
-sub BAUD_19200		{ 0x2000 }
-sub BAUD_38400		{ 0x4000 }
-sub BAUD_56K		{ 0x8000 }
-sub BAUD_57600		{ 0x40000 }
-sub BAUD_115200		{ 0x20000 }
-sub BAUD_128K		{ 0x10000 }
-sub BAUD_USER		{ 0x10000000 }
-sub PST_FAX		{ 0x21 }
-sub PST_LAT		{ 0x101 }
-sub PST_MODEM		{ 0x6 }
-sub PST_NETWORK_BRIDGE	{ 0x100 }
-sub PST_PARALLELPORT	{ 0x2 }
-sub PST_RS232		{ 0x1 }
-sub PST_RS422		{ 0x3 }
-sub PST_RS423		{ 0x4 }
-sub PST_RS449		{ 0x5 }
-sub PST_SCANNER		{ 0x22 }
-sub PST_TCPIP_TELNET	{ 0x102 }
-sub PST_UNSPECIFIED	{ 0 }
-sub PST_X25		{ 0x103 }
-sub PCF_16BITMODE	{ 0x200 }
-sub PCF_DTRDSR		{ 0x1 }
-sub PCF_INTTIMEOUTS	{ 0x80 }
-sub PCF_PARITY_CHECK	{ 0x8 }
-sub PCF_RLSD		{ 0x4 }
-sub PCF_RTSCTS		{ 0x2 }
-sub PCF_SETXCHAR	{ 0x20 }
-sub PCF_SPECIALCHARS	{ 0x100 }
-sub PCF_TOTALTIMEOUTS	{ 0x40 }
-sub PCF_XONXOFF		{ 0x10 }
-sub SP_BAUD		{ 0x2 }
-sub SP_DATABITS		{ 0x4 }
-sub SP_HANDSHAKING	{ 0x10 }
-sub SP_PARITY		{ 0x1 }
-sub SP_PARITY_CHECK	{ 0x20 }
-sub SP_RLSD		{ 0x40 }
-sub SP_STOPBITS		{ 0x8 }
-sub DATABITS_5		{ 1 }
-sub DATABITS_6		{ 2 }
-sub DATABITS_7		{ 4 }
-sub DATABITS_8		{ 8 }
-sub DATABITS_16		{ 16 }
-sub DATABITS_16X	{ 32 }
-sub STOPBITS_10		{ 1 }
-sub STOPBITS_15		{ 2 }
-sub STOPBITS_20		{ 4 }
-sub PARITY_NONE		{ 256 }
-sub PARITY_ODD		{ 512 }
-sub PARITY_EVEN		{ 1024 }
-sub PARITY_MARK		{ 2048 }
-sub PARITY_SPACE	{ 4096 }
-sub COMMPROP_INITIALIZED	{ 0xe73cf52e }
+use constant {
+   SP_SERIALCOMM        => 0x1,
+   BAUD_075             => 0x1,
+   BAUD_110             => 0x2,
+   BAUD_134_5           => 0x4,
+   BAUD_150             => 0x8,
+   BAUD_300             => 0x10,
+   BAUD_600             => 0x20,
+   BAUD_1200            => 0x40,
+   BAUD_1800            => 0x80,
+   BAUD_2400            => 0x100,
+   BAUD_4800            => 0x200,
+   BAUD_7200            => 0x400,
+   BAUD_9600            => 0x800,
+   BAUD_14400           => 0x1000,
+   BAUD_19200           => 0x2000,
+   BAUD_38400           => 0x4000,
+   BAUD_56K             => 0x8000,
+   BAUD_57600           => 0x40000,
+   BAUD_115200          => 0x20000,
+   BAUD_128K            => 0x10000,
+   BAUD_USER            => 0x10000000,
+   PST_FAX              => 0x21,
+   PST_LAT              => 0x101,
+   PST_MODEM            => 0x6,
+   PST_NETWORK_BRIDGE   => 0x100,
+   PST_PARALLELPORT     => 0x2,
+   PST_RS232            => 0x1,
+   PST_RS422            => 0x3,
+   PST_RS423            => 0x4,
+   PST_RS449            => 0x5,
+   PST_SCANNER          => 0x22,
+   PST_TCPIP_TELNET     => 0x102,
+   PST_UNSPECIFIED      => 0,
+   PST_X25              => 0x103,
+   PCF_16BITMODE        => 0x200,
+   PCF_DTRDSR           => 0x1,
+   PCF_INTTIMEOUTS      => 0x80,
+   PCF_PARITY_CHECK     => 0x8,
+   PCF_RLSD             => 0x4,
+   PCF_RTSCTS           => 0x2,
+   PCF_SETXCHAR         => 0x20,
+   PCF_SPECIALCHARS     => 0x100,
+   PCF_TOTALTIMEOUTS    => 0x40,
+   PCF_XONXOFF          => 0x10,
+   SP_BAUD              => 0x2,
+   SP_DATABITS          => 0x4,
+   SP_HANDSHAKING       => 0x10,
+   SP_PARITY            => 0x1,
+   SP_PARITY_CHECK      => 0x20,
+   SP_RLSD              => 0x40,
+   SP_STOPBITS          => 0x8,
+   DATABITS_5           => 1,
+   DATABITS_6           => 2,
+   DATABITS_7           => 4,
+   DATABITS_8           => 8,
+   DATABITS_16          => 16,
+   DATABITS_16X         => 32,
+   STOPBITS_10          => 1,
+   STOPBITS_15          => 2,
+   STOPBITS_20          => 4,
+   PARITY_NONE          => 256,
+   PARITY_ODD           => 512,
+   PARITY_EVEN          => 1024,
+   PARITY_MARK          => 2048,
+   PARITY_SPACE         => 4096,
+   COMMPROP_INITIALIZED => 0xe73cf52e,
 
 ## DCB structure
-sub CBR_110			{ 110 }
-sub CBR_300			{ 300 }
-sub CBR_600			{ 600 }
-sub CBR_1200			{ 1200 }
-sub CBR_2400			{ 2400 }
-sub CBR_4800			{ 4800 }
-sub CBR_9600			{ 9600 }
-sub CBR_14400			{ 14400 }
-sub CBR_19200			{ 19200 }
-sub CBR_38400			{ 38400 }
-sub CBR_56000			{ 56000 }
-sub CBR_57600			{ 57600 }
-sub CBR_115200			{ 115200 }
-sub CBR_128000			{ 128000 }
-sub CBR_256000			{ 256000 }
-sub DTR_CONTROL_DISABLE		{ 0 }
-sub DTR_CONTROL_ENABLE		{ 1 }
-sub DTR_CONTROL_HANDSHAKE	{ 2 }
-sub RTS_CONTROL_DISABLE		{ 0 }
-sub RTS_CONTROL_ENABLE		{ 1 }
-sub RTS_CONTROL_HANDSHAKE	{ 2 }
-sub RTS_CONTROL_TOGGLE		{ 3 }
-sub EVENPARITY			{ 2 }
-sub MARKPARITY			{ 3 }
-sub NOPARITY			{ 0 }
-sub ODDPARITY			{ 1 }
-sub SPACEPARITY			{ 4 }
-sub ONESTOPBIT			{ 0 }
-sub ONE5STOPBITS		{ 1 }
-sub TWOSTOPBITS			{ 2 }
+   CBR_110               => 110,
+   CBR_300               => 300,
+   CBR_600               => 600,
+   CBR_1200              => 1200,
+   CBR_2400              => 2400,
+   CBR_4800              => 4800,
+   CBR_9600              => 9600,
+   CBR_14400             => 14400,
+   CBR_19200             => 19200,
+   CBR_38400             => 38400,
+   CBR_56000             => 56000,
+   CBR_57600             => 57600,
+   CBR_115200            => 115200,
+   CBR_128000            => 128000,
+   CBR_256000            => 256000,
+   DTR_CONTROL_DISABLE   => 0,
+   DTR_CONTROL_ENABLE    => 1,
+   DTR_CONTROL_HANDSHAKE => 2,
+   RTS_CONTROL_DISABLE   => 0,
+   RTS_CONTROL_ENABLE    => 1,
+   RTS_CONTROL_HANDSHAKE => 2,
+   RTS_CONTROL_TOGGLE    => 3,
+   EVENPARITY            => 2,
+   MARKPARITY            => 3,
+   NOPARITY              => 0,
+   ODDPARITY             => 1,
+   SPACEPARITY           => 4,
+   ONESTOPBIT            => 0,
+   ONE5STOPBITS          => 1,
+   TWOSTOPBITS           => 2,
 
 ## Flowcontrol bit mask in DCB
-sub FM_fBinary			{ 0x1 }
-sub FM_fParity			{ 0x2 }
-sub FM_fOutxCtsFlow		{ 0x4 }
-sub FM_fOutxDsrFlow		{ 0x8 }
-sub FM_fDtrControl		{ 0x30 }
-sub FM_fDsrSensitivity		{ 0x40 }
-sub FM_fTXContinueOnXoff	{ 0x80 }
-sub FM_fOutX			{ 0x100 }
-sub FM_fInX			{ 0x200 }
-sub FM_fErrorChar		{ 0x400 }
-sub FM_fNull			{ 0x800 }
-sub FM_fRtsControl		{ 0x3000 }
-sub FM_fAbortOnError		{ 0x4000 }
-sub FM_fDummy2			{ 0xffff8000 }
+   FM_fBinary           => 0x1,
+   FM_fParity           => 0x2,
+   FM_fOutxCtsFlow      => 0x4,
+   FM_fOutxDsrFlow      => 0x8,
+   FM_fDtrControl       => 0x30,
+   FM_fDsrSensitivity   => 0x40,
+   FM_fTXContinueOnXoff => 0x80,
+   FM_fOutX             => 0x100,
+   FM_fInX              => 0x200,
+   FM_fErrorChar        => 0x400,
+   FM_fNull             => 0x800,
+   FM_fRtsControl       => 0x3000,
+   FM_fAbortOnError     => 0x4000,
+   FM_fDummy2           => 0xffff8000,
 
 ## COMSTAT bit mask
-sub BM_fCtsHold		{ 0x1 }   
-sub BM_fDsrHold		{ 0x2 }   
-sub BM_fRlsdHold	{ 0x4 }  
-sub BM_fXoffHold	{ 0x8 }  
-sub BM_fXoffSent	{ 0x10 }  
-sub BM_fEof		{ 0x20 }       
-sub BM_fTxim		{ 0x40 }      
-sub BM_AllBits		{ 0x7f }      
+   BM_fCtsHold  => 0x1,
+   BM_fDsrHold  => 0x2,
+   BM_fRlsdHold => 0x4,
+   BM_fXoffHold => 0x8,
+   BM_fXoffSent => 0x10,
+   BM_fEof      => 0x20,
+   BM_fTxim     => 0x40,
+   BM_AllBits   => 0x7f,
 
 ## PurgeComm bit mask
-sub PURGE_TXABORT	{ 0x1 }   
-sub PURGE_RXABORT	{ 0x2 }   
-sub PURGE_TXCLEAR	{ 0x4 }  
-sub PURGE_RXCLEAR	{ 0x8 }  
+   PURGE_TXABORT => 0x1,
+   PURGE_RXABORT => 0x2,
+   PURGE_TXCLEAR => 0x4,
+   PURGE_RXCLEAR => 0x8,
 
 ## GetCommModemStatus bit mask
-sub MS_CTS_ON		{ 0x10 }   
-sub MS_DSR_ON		{ 0x20 }   
-sub MS_RING_ON		{ 0x40 }  
-sub MS_RLSD_ON		{ 0x80 }  
+   MS_CTS_ON  => 0x10,
+   MS_DSR_ON  => 0x20,
+   MS_RING_ON => 0x40,
+   MS_RLSD_ON => 0x80,
 
 ## EscapeCommFunction operations
-sub SETXOFF		{ 0x1 }
-sub SETXON		{ 0x2 }
-sub SETRTS		{ 0x3 }
-sub CLRRTS		{ 0x4 }
-sub SETDTR		{ 0x5 }
-sub CLRDTR		{ 0x6 }
-sub SETBREAK		{ 0x8 }
-sub CLRBREAK		{ 0x9 }
+   SETXOFF  => 0x1,
+   SETXON   => 0x2,
+   SETRTS   => 0x3,
+   CLRRTS   => 0x4,
+   SETDTR   => 0x5,
+   CLRDTR   => 0x6,
+   SETBREAK => 0x8,
+   CLRBREAK => 0x9,
 
 ## ClearCommError bit mask
-sub CE_RXOVER		{ 0x1 }
-sub CE_OVERRUN		{ 0x2 }
-sub CE_RXPARITY		{ 0x4 }
-sub CE_FRAME		{ 0x8 }
-sub CE_BREAK		{ 0x10 }
-sub CE_TXFULL		{ 0x100 }
+   CE_RXOVER   => 0x1,
+   CE_OVERRUN  => 0x2,
+   CE_RXPARITY => 0x4,
+   CE_FRAME    => 0x8,
+   CE_BREAK    => 0x10,
+   CE_TXFULL   => 0x100,
 #### LPT only
 # sub CE_PTO		{ 0x200 }
 # sub CE_IOE		{ 0x400 }
 # sub CE_DNS		{ 0x800 }
 # sub CE_OOP		{ 0x1000 }
 #### LPT only
-sub CE_MODE		{ 0x8000 }
+   CE_MODE     => 0x8000,
 
 ## GetCommMask bits
-sub EV_RXCHAR		{ 0x1 }
-sub EV_RXFLAG		{ 0x2 }
-sub EV_TXEMPTY		{ 0x4 }
-sub EV_CTS		{ 0x8 }
-sub EV_DSR		{ 0x10 }
-sub EV_RLSD		{ 0x20 }
-sub EV_BREAK		{ 0x40 }
-sub EV_ERR		{ 0x80 }
-sub EV_RING		{ 0x100 }
-sub EV_PERR		{ 0x200 }
-sub EV_RX80FULL		{ 0x400 }
-sub EV_EVENT1		{ 0x800 }
-sub EV_EVENT2		{ 0x1000 }
+   EV_RXCHAR   => 0x1,
+   EV_RXFLAG   => 0x2,
+   EV_TXEMPTY  => 0x4,
+   EV_CTS      => 0x8,
+   EV_DSR      => 0x10,
+   EV_RLSD     => 0x20,
+   EV_BREAK    => 0x40,
+   EV_ERR      => 0x80,
+   EV_RING     => 0x100,
+   EV_PERR     => 0x200,
+   EV_RX80FULL => 0x400,
+   EV_EVENT1   => 0x800,
+   EV_EVENT2   => 0x1000,
 
 ## Allowed OVERLAP errors
-sub ERROR_IO_INCOMPLETE	{ 996 }
-sub ERROR_IO_PENDING	{ 997 }
-
+   ERROR_IO_INCOMPLETE => 996,
+   ERROR_IO_PENDING    => 997,
+};
 #### "constant" declarations compatible with ActiveState ####
 
 my $DCBformat="LLLSSSCCCCCCCCS";
@@ -498,12 +486,7 @@ sub ST_ERROR	{3}	# latched
 
 #### Package variable declarations ####
 
-my @Yes_resp = (
-	       "YES","Y",
-	       "ON",
-	       "TRUE","T",
-	       "1"
-	       );
+my @Yes_resp = (qw{ YES Y ON TRUE T 1});
 
 my @binary_opt = (0, 1);
 my @byte_opt = (0, 255);
@@ -593,7 +576,7 @@ sub new {
 
     $self->{"_HANDLE"}=CreateFile("$self->{NAME}",
 				  0xc0000000,
-				  0,	
+				  0,
 				  $null,
 				  3,
 				  0x40000000,
@@ -611,7 +594,7 @@ sub new {
         return 0 if ($quiet);
 	return if (nocarp);
         OS_Error;
-        carp "can't open device: $self->{NAME}\n"; 
+        carp "can't open device: $self->{NAME}\n";
         return;
     }
 
@@ -701,7 +684,7 @@ sub new {
          $MC_MaxDTE,
          $MC_MaxDCE,
          $MC_Filler)= unpack($CP_format6, $CommProperties);
-    
+
         if ($Babble) {
     	    printf "\nMODEMDEVCAPS:\n";
             printf "\$MC_ActualSize= %d\n", $CP_ProvChar_start;
@@ -747,7 +730,7 @@ sub new {
             printf "at least %d bytes.\n", $MC_ReqSize+60;
         }
     }
-    
+
 ##    if (1 | $Babble) {
     if ($Babble) {
         printf "\$CP_Length= %d\n", $CP_Length;
@@ -1009,7 +992,7 @@ sub new {
           			 $zero,		# osRead_Offset,
           			 $zero,		# osRead_OffsetHigh,
 				 $self->{"_R_EVENT"});
-  
+
     $self->{"_W_OVERLAP"} = pack($OVERLAPPEDformat,
           			 $zero,		# osWrite_Internal,
           			 $zero,		# osWrite_InternalHigh,
@@ -1139,7 +1122,7 @@ sub init_done {
     return 0 unless (defined $self->{"_INIT"});
     return $self->{"_INIT"};
 }
-    
+
 
 sub update_DCB {
     my $self = shift;
@@ -1363,7 +1346,7 @@ sub initialize {
     }
     purge_all($self);
     return $fault;
-}    
+}
 
 sub is_status {
     my $self		= shift;
@@ -2535,7 +2518,7 @@ Win32API::CommPort - Raw Win32 system API calls for serial communications.
 
   $PortObj->is_read_interval(100);    # max time between read char (millisec)
   $PortObj->is_read_char_time(5);     # avg time between read char
-  $PortObj->is_read_const_time(100);  # total = (avg * bytes) + const 
+  $PortObj->is_read_const_time(100);  # total = (avg * bytes) + const
   $PortObj->is_write_char_time(5);
   $PortObj->is_write_const_time(100);
 
@@ -2824,7 +2807,7 @@ exceeds the value set by B<is_read_interval>. It does this by timestamping
 each character. It appears that at least one character must by received in
 I<every> B<read> I<call to the API> to initialize the mechanism. The timer
 is then reset by each succeeding character. If no characters are received,
-the read will block indefinitely. 
+the read will block indefinitely.
 
 Setting B<is_read_interval> to C<0xffffffff> will do a non-blocking read.
 The B<ReadFile> returns immediately whether or not any characters are
