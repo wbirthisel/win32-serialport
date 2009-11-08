@@ -10,9 +10,7 @@ use Carp;
 
 our $VERSION = '0.19';
 
-require Exporter;
-
-our @ISA = qw( Exporter Win32API::CommPort );
+use parent qw( Exporter Win32API::CommPort );
 
 our @EXPORT= qw();
 our @EXPORT_OK= @Win32API::CommPort::EXPORT_OK;

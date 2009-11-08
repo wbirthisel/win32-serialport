@@ -53,13 +53,7 @@ use strict;
 our $VERSION = '0.19';
 our $RBUF_Size = 4096;
 
-require Exporter;
-## require AutoLoader;
-
-our @ISA = qw(Exporter);
-# Items to export into callers namespace by default. Note: do not export
-# names by default without a very good reason. Use EXPORT_OK instead.
-# Do not simply export all your public functions/methods/constants.
+use parent 'Exporter';
 
 our @EXPORT= qw();
 our @EXPORT_OK= qw();
