@@ -3,10 +3,6 @@ package Win32API::CommPort;
 
 use Win32;
 use Win32::API 0.01;
-if ( $] < 5.004 ) {
-    my $no_silly_warning = $Win32::API::VERSION;
-    $no_silly_warning = $Win32::API::pack;
-}
 
 use Carp;
 use strict;
