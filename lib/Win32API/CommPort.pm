@@ -1,11 +1,13 @@
 # This part includes the low-level API calls
 package Win32API::CommPort;
 
+use strict;
+use warnings;
+
 use Win32;
 use Win32::API 0.01;
 
 use Carp;
-use strict;
 
 		#### API declarations ####
 no strict 'subs';	# these may be imported someday

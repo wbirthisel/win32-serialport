@@ -1,10 +1,12 @@
 package Win32::SerialPort;
 
+use strict;
+use warnings;
+
 use Win32;
 use Win32API::CommPort qw( :STAT :PARAM 0.17 );
 
 use Carp;
-use strict;
 
 our $VERSION = '0.19';
 
