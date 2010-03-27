@@ -5,7 +5,7 @@ use strict;
 use warnings;
 
 use Win32;
-use Win32::API 0.01;
+use Win32::API;
 
 use Carp;
 
@@ -50,14 +50,17 @@ our $_ResetEvent = Win32::API->new("kernel32", "ResetEvent", [N], I);
 
 use strict;
 
-our $VERSION = '0.19';
+our $VERSION = '0.20';
 our $RBUF_Size = 4096;
 
-use parent 'Exporter';
+require Exporter;
+
+our @ISA = qw(Exporter);
 
 our @EXPORT= qw();
 our @EXPORT_OK= qw();
-our %EXPORT_TAGS = (STAT	=> [qw( BM_fCtsHold	BM_fDsrHold
+our %EXPORT_TAGS = (
+		STAT	=> [qw( BM_fCtsHold	BM_fDsrHold
 				BM_fRlsdHold	BM_fXoffHold
 				BM_fXoffSent	BM_fEof
 				BM_fTxim	BM_AllBits
@@ -273,188 +276,187 @@ sub ResetEvent {
 #### compatible with ActiveState ####
 
 ## COMMPROP structure
-use constant {
-   SP_SERIALCOMM        => 0x1,
-   BAUD_075             => 0x1,
-   BAUD_110             => 0x2,
-   BAUD_134_5           => 0x4,
-   BAUD_150             => 0x8,
-   BAUD_300             => 0x10,
-   BAUD_600             => 0x20,
-   BAUD_1200            => 0x40,
-   BAUD_1800            => 0x80,
-   BAUD_2400            => 0x100,
-   BAUD_4800            => 0x200,
-   BAUD_7200            => 0x400,
-   BAUD_9600            => 0x800,
-   BAUD_14400           => 0x1000,
-   BAUD_19200           => 0x2000,
-   BAUD_38400           => 0x4000,
-   BAUD_56K             => 0x8000,
-   BAUD_57600           => 0x40000,
-   BAUD_115200          => 0x20000,
-   BAUD_128K            => 0x10000,
-   BAUD_USER            => 0x10000000,
-   PST_FAX              => 0x21,
-   PST_LAT              => 0x101,
-   PST_MODEM            => 0x6,
-   PST_NETWORK_BRIDGE   => 0x100,
-   PST_PARALLELPORT     => 0x2,
-   PST_RS232            => 0x1,
-   PST_RS422            => 0x3,
-   PST_RS423            => 0x4,
-   PST_RS449            => 0x5,
-   PST_SCANNER          => 0x22,
-   PST_TCPIP_TELNET     => 0x102,
-   PST_UNSPECIFIED      => 0,
-   PST_X25              => 0x103,
-   PCF_16BITMODE        => 0x200,
-   PCF_DTRDSR           => 0x1,
-   PCF_INTTIMEOUTS      => 0x80,
-   PCF_PARITY_CHECK     => 0x8,
-   PCF_RLSD             => 0x4,
-   PCF_RTSCTS           => 0x2,
-   PCF_SETXCHAR         => 0x20,
-   PCF_SPECIALCHARS     => 0x100,
-   PCF_TOTALTIMEOUTS    => 0x40,
-   PCF_XONXOFF          => 0x10,
-   SP_BAUD              => 0x2,
-   SP_DATABITS          => 0x4,
-   SP_HANDSHAKING       => 0x10,
-   SP_PARITY            => 0x1,
-   SP_PARITY_CHECK      => 0x20,
-   SP_RLSD              => 0x40,
-   SP_STOPBITS          => 0x8,
-   DATABITS_5           => 1,
-   DATABITS_6           => 2,
-   DATABITS_7           => 4,
-   DATABITS_8           => 8,
-   DATABITS_16          => 16,
-   DATABITS_16X         => 32,
-   STOPBITS_10          => 1,
-   STOPBITS_15          => 2,
-   STOPBITS_20          => 4,
-   PARITY_NONE          => 256,
-   PARITY_ODD           => 512,
-   PARITY_EVEN          => 1024,
-   PARITY_MARK          => 2048,
-   PARITY_SPACE         => 4096,
-   COMMPROP_INITIALIZED => 0xe73cf52e,
+use constant SP_SERIALCOMM		=> 0x1;
+use constant BAUD_075			=> 0x1;
+use constant BAUD_110			=> 0x2;
+use constant BAUD_134_5			=> 0x4;
+use constant BAUD_150			=> 0x8;
+use constant BAUD_300			=> 0x10;
+use constant BAUD_600			=> 0x20;
+use constant BAUD_1200			=> 0x40;
+use constant BAUD_1800			=> 0x80;
+use constant BAUD_2400			=> 0x100;
+use constant BAUD_4800			=> 0x200;
+use constant BAUD_7200			=> 0x400;
+use constant BAUD_9600			=> 0x800;
+use constant BAUD_14400			=> 0x1000;
+use constant BAUD_19200			=> 0x2000;
+use constant BAUD_38400			=> 0x4000;
+use constant BAUD_56K			=> 0x8000;
+use constant BAUD_57600			=> 0x40000;
+use constant BAUD_115200		=> 0x20000;
+use constant BAUD_128K			=> 0x10000;
+use constant BAUD_USER			=> 0x10000000;
+use constant PST_FAX			=> 0x21;
+use constant PST_LAT			=> 0x101;
+use constant PST_MODEM			=> 0x6;
+use constant PST_NETWORK_BRIDGE		=> 0x100;
+use constant PST_PARALLELPORT		=> 0x2;
+use constant PST_RS232			=> 0x1;
+use constant PST_RS422			=> 0x3;
+use constant PST_RS423			=> 0x4;
+use constant PST_RS449			=> 0x5;
+use constant PST_SCANNER		=> 0x22;
+use constant PST_TCPIP_TELNET		=> 0x102;
+use constant PST_UNSPECIFIED		=> 0;
+use constant PST_X25			=> 0x103;
+use constant PCF_16BITMODE		=> 0x200;
+use constant PCF_DTRDSR			=> 0x1;
+use constant PCF_INTTIMEOUTS		=> 0x80;
+use constant PCF_PARITY_CHECK		=> 0x8;
+use constant PCF_RLSD			=> 0x4;
+use constant PCF_RTSCTS			=> 0x2;
+use constant PCF_SETXCHAR		=> 0x20;
+use constant PCF_SPECIALCHARS		=> 0x100;
+use constant PCF_TOTALTIMEOUTS		=> 0x40;
+use constant PCF_XONXOFF		=> 0x10;
+use constant SP_BAUD			=> 0x2;
+use constant SP_DATABITS		=> 0x4;
+use constant SP_HANDSHAKING		=> 0x10;
+use constant SP_PARITY			=> 0x1;
+use constant SP_PARITY_CHECK		=> 0x20;
+use constant SP_RLSD			=> 0x40;
+use constant SP_STOPBITS		=> 0x8;
+use constant DATABITS_5			=> 1;
+use constant DATABITS_6			=> 2;
+use constant DATABITS_7			=> 4;
+use constant DATABITS_8			=> 8;
+use constant DATABITS_16		=> 16;
+use constant DATABITS_16X		=> 32;
+use constant STOPBITS_10		=> 1;
+use constant STOPBITS_15		=> 2;
+use constant STOPBITS_20		=> 4;
+use constant PARITY_NONE		=> 256;
+use constant PARITY_ODD			=> 512;
+use constant PARITY_EVEN		=> 1024;
+use constant PARITY_MARK		=> 2048;
+use constant PARITY_SPACE		=> 4096;
+use constant COMMPROP_INITIALIZED	=> 0xe73cf52e;
 
 ## DCB structure
-   CBR_110               => 110,
-   CBR_300               => 300,
-   CBR_600               => 600,
-   CBR_1200              => 1200,
-   CBR_2400              => 2400,
-   CBR_4800              => 4800,
-   CBR_9600              => 9600,
-   CBR_14400             => 14400,
-   CBR_19200             => 19200,
-   CBR_38400             => 38400,
-   CBR_56000             => 56000,
-   CBR_57600             => 57600,
-   CBR_115200            => 115200,
-   CBR_128000            => 128000,
-   CBR_256000            => 256000,
-   DTR_CONTROL_DISABLE   => 0,
-   DTR_CONTROL_ENABLE    => 1,
-   DTR_CONTROL_HANDSHAKE => 2,
-   RTS_CONTROL_DISABLE   => 0,
-   RTS_CONTROL_ENABLE    => 1,
-   RTS_CONTROL_HANDSHAKE => 2,
-   RTS_CONTROL_TOGGLE    => 3,
-   EVENPARITY            => 2,
-   MARKPARITY            => 3,
-   NOPARITY              => 0,
-   ODDPARITY             => 1,
-   SPACEPARITY           => 4,
-   ONESTOPBIT            => 0,
-   ONE5STOPBITS          => 1,
-   TWOSTOPBITS           => 2,
+use constant CBR_110			=> 110;
+use constant CBR_300			=> 300;
+use constant CBR_600			=> 600;
+use constant CBR_1200			=> 1200;
+use constant CBR_2400			=> 2400;
+use constant CBR_4800			=> 4800;
+use constant CBR_9600			=> 9600;
+use constant CBR_14400			=> 14400;
+use constant CBR_19200			=> 19200;
+use constant CBR_38400			=> 38400;
+use constant CBR_56000			=> 56000;
+use constant CBR_57600			=> 57600;
+use constant CBR_115200			=> 115200;
+use constant CBR_128000			=> 128000;
+use constant CBR_256000			=> 256000;
+use constant DTR_CONTROL_DISABLE	=> 0;
+use constant DTR_CONTROL_ENABLE		=> 1;
+use constant DTR_CONTROL_HANDSHAKE	=> 2;
+use constant RTS_CONTROL_DISABLE	=> 0;
+use constant RTS_CONTROL_ENABLE		=> 1;
+use constant RTS_CONTROL_HANDSHAKE	=> 2;
+use constant RTS_CONTROL_TOGGLE		=> 3;
+use constant EVENPARITY			=> 2;
+use constant MARKPARITY			=> 3;
+use constant NOPARITY			=> 0;
+use constant ODDPARITY			=> 1;
+use constant SPACEPARITY		=> 4;
+use constant ONESTOPBIT			=> 0;
+use constant ONE5STOPBITS		=> 1;
+use constant TWOSTOPBITS		=> 2;
 
 ## Flowcontrol bit mask in DCB
-   FM_fBinary           => 0x1,
-   FM_fParity           => 0x2,
-   FM_fOutxCtsFlow      => 0x4,
-   FM_fOutxDsrFlow      => 0x8,
-   FM_fDtrControl       => 0x30,
-   FM_fDsrSensitivity   => 0x40,
-   FM_fTXContinueOnXoff => 0x80,
-   FM_fOutX             => 0x100,
-   FM_fInX              => 0x200,
-   FM_fErrorChar        => 0x400,
-   FM_fNull             => 0x800,
-   FM_fRtsControl       => 0x3000,
-   FM_fAbortOnError     => 0x4000,
-   FM_fDummy2           => 0xffff8000,
+use constant FM_fBinary			=> 0x1;
+use constant FM_fParity			=> 0x2;
+use constant FM_fOutxCtsFlow		=> 0x4;
+use constant FM_fOutxDsrFlow		=> 0x8;
+use constant FM_fDtrControl		=> 0x30;
+use constant FM_fDsrSensitivity		=> 0x40;
+use constant FM_fTXContinueOnXoff	=> 0x80;
+use constant FM_fOutX			=> 0x100;
+use constant FM_fInX			=> 0x200;
+use constant FM_fErrorChar		=> 0x400;
+use constant FM_fNull			=> 0x800;
+use constant FM_fRtsControl		=> 0x3000;
+use constant FM_fAbortOnError		=> 0x4000;
+use constant FM_fDummy2			=> 0xffff8000;
 
 ## COMSTAT bit mask
-   BM_fCtsHold  => 0x1,
-   BM_fDsrHold  => 0x2,
-   BM_fRlsdHold => 0x4,
-   BM_fXoffHold => 0x8,
-   BM_fXoffSent => 0x10,
-   BM_fEof      => 0x20,
-   BM_fTxim     => 0x40,
-   BM_AllBits   => 0x7f,
+use constant BM_fCtsHold	=> 0x1;
+use constant BM_fDsrHold	=> 0x2;
+use constant BM_fRlsdHold	=> 0x4;
+use constant BM_fXoffHold	=> 0x8;
+use constant BM_fXoffSent	=> 0x10;
+use constant BM_fEof		=> 0x20;
+use constant BM_fTxim		=> 0x40;
+use constant BM_AllBits		=> 0x7f;
 
 ## PurgeComm bit mask
-   PURGE_TXABORT => 0x1,
-   PURGE_RXABORT => 0x2,
-   PURGE_TXCLEAR => 0x4,
-   PURGE_RXCLEAR => 0x8,
+use constant PURGE_TXABORT	=> 0x1;
+use constant PURGE_RXABORT	=> 0x2;
+use constant PURGE_TXCLEAR	=> 0x4;
+use constant PURGE_RXCLEAR	=> 0x8;
 
 ## GetCommModemStatus bit mask
-   MS_CTS_ON  => 0x10,
-   MS_DSR_ON  => 0x20,
-   MS_RING_ON => 0x40,
-   MS_RLSD_ON => 0x80,
+use constant MS_CTS_ON		=> 0x10;
+use constant MS_DSR_ON		=> 0x20;
+use constant MS_RING_ON		=> 0x40;
+use constant MS_RLSD_ON		=> 0x80;
 
 ## EscapeCommFunction operations
-   SETXOFF  => 0x1,
-   SETXON   => 0x2,
-   SETRTS   => 0x3,
-   CLRRTS   => 0x4,
-   SETDTR   => 0x5,
-   CLRDTR   => 0x6,
-   SETBREAK => 0x8,
-   CLRBREAK => 0x9,
+use constant SETXOFF		=> 0x1;
+use constant SETXON		=> 0x2;
+use constant SETRTS		=> 0x3;
+use constant CLRRTS		=> 0x4;
+use constant SETDTR		=> 0x5;
+use constant CLRDTR		=> 0x6;
+use constant SETBREAK		=> 0x8;
+use constant CLRBREAK		=> 0x9;
 
 ## ClearCommError bit mask
-   CE_RXOVER   => 0x1,
-   CE_OVERRUN  => 0x2,
-   CE_RXPARITY => 0x4,
-   CE_FRAME    => 0x8,
-   CE_BREAK    => 0x10,
-   CE_TXFULL   => 0x100,
+use constant CE_RXOVER		=> 0x1;
+use constant CE_OVERRUN		=> 0x2;
+use constant CE_RXPARITY	=> 0x4;
+use constant CE_FRAME		=> 0x8;
+use constant CE_BREAK		=> 0x10;
+use constant CE_TXFULL		=> 0x100;
 #### LPT only
-# sub CE_PTO		{ 0x200 }
-# sub CE_IOE		{ 0x400 }
-# sub CE_DNS		{ 0x800 }
-# sub CE_OOP		{ 0x1000 }
+# use constant CE_PTO		=> 0x200;
+# use constant CE_IOE		=> 0x400;
+# use constant CE_DNS		=> 0x800;
+# use constant CE_OOP		=> 0x1000;
 #### LPT only
-   CE_MODE     => 0x8000,
+use constant CE_MODE		=> 0x8000;
 
 ## GetCommMask bits
-   EV_RXCHAR   => 0x1,
-   EV_RXFLAG   => 0x2,
-   EV_TXEMPTY  => 0x4,
-   EV_CTS      => 0x8,
-   EV_DSR      => 0x10,
-   EV_RLSD     => 0x20,
-   EV_BREAK    => 0x40,
-   EV_ERR      => 0x80,
-   EV_RING     => 0x100,
-   EV_PERR     => 0x200,
-   EV_RX80FULL => 0x400,
-   EV_EVENT1   => 0x800,
-   EV_EVENT2   => 0x1000,
+use constant EV_RXCHAR		=> 0x1;
+use constant EV_RXFLAG		=> 0x2;
+use constant EV_TXEMPTY		=> 0x4;
+use constant EV_CTS		=> 0x8;
+use constant EV_DSR		=> 0x10;
+use constant EV_RLSD		=> 0x20;
+use constant EV_BREAK		=> 0x40;
+use constant EV_ERR		=> 0x80;
+use constant EV_RING		=> 0x100;
+use constant EV_PERR		=> 0x200;
+use constant EV_RX80FULL	=> 0x400;
+use constant EV_EVENT1		=> 0x800;
+use constant EV_EVENT2		=> 0x1000;
 
 ## Allowed OVERLAP errors
-   ERROR_IO_INCOMPLETE => 996,
-   ERROR_IO_PENDING    => 997,
-};
+use constant ERROR_IO_INCOMPLETE	=> 996;
+use constant ERROR_IO_PENDING		=> 997;
+
 #### "constant" declarations compatible with ActiveState ####
 
 my $DCBformat="LLLSSSCCCCCCCCS";
@@ -467,18 +469,25 @@ my $TIMEOUTformat="LLLLL";
 my $COMSTATformat="LLL";
 my $cfg_file_sig="Win32API::SerialPort_Configuration_File -- DO NOT EDIT --\n";
 
-sub SHORTsize { 0xffff; }
-sub LONGsize { 0xffffffff; }
+use constant SHORTsize	=> 0xffff;
+use constant LONGsize	=> 0xffffffff;
 
-sub ST_BLOCK	{0}	# status offsets for caller
-sub ST_INPUT	{1}
-sub ST_OUTPUT	{2}
-sub ST_ERROR	{3}	# latched
+use constant ST_BLOCK	=> 0;	# status offsets for caller
+use constant ST_INPUT	=> 1;
+use constant ST_OUTPUT	=> 2;
+use constant ST_ERROR	=> 3;	# latched
 
 
 #### Package variable declarations ####
 
-my @Yes_resp = (qw{ YES Y ON TRUE T 1});
+my %Yes_resp = (
+	        "YES"	=> 1,
+		"Y"	=> 1,
+	        "ON"	=> 1,
+	        "TRUE"	=> 1,
+		"T"	=> 1,
+	        "1"	=> 1
+	       );
 
 my @binary_opt = (0, 1);
 my @byte_opt = (0, 255);
@@ -508,9 +517,8 @@ sub internal_buffer { return $RBUF_Size }
 
 sub yes_true {
     my $choice = uc shift;
-    my $ans = 0;
-    foreach (@Yes_resp) { $ans = 1 if ( $choice eq $_ ) }
-    return $ans;
+    return 1 if (exists $Yes_resp{$choice});
+    return 0;
 }
 
 sub new {
@@ -1430,6 +1438,11 @@ sub can_16bitmode {
     return $self->{"_C_16BITMODE"};
 }
 
+sub can_ioctl {
+    my $self = shift;
+    return 0;	# unix only
+}
+
 sub is_rs232 {
     my $self = shift;
     return ($self->{"_TYPE"} == PST_RS232);
@@ -2229,10 +2242,6 @@ sub rts_active {
 
 sub pulse_dtr_off {
     return unless (@_ == 2);
-    if ( ($] < 5.005) and ($] >= 5.004) ) {
-	nocarp or carp "\npulse_dtr_off not supported on version $]\n";
-	return;
-    }
     my $self = shift;
     my $delay = shift;
     $self->dtr_active(0) or carp "Did not pulse DTR off";
@@ -2243,10 +2252,6 @@ sub pulse_dtr_off {
 
 sub pulse_rts_off {
     return unless (@_ == 2);
-    if ( ($] < 5.005) and ($] >= 5.004) ) {
-	nocarp or carp "\npulse_rts_off not supported on version $]\n";
-	return;
-    }
     my $self = shift;
     my $delay = shift;
     $self->rts_active(0) or carp "Did not pulse RTS off";
@@ -2257,10 +2262,6 @@ sub pulse_rts_off {
 
 sub pulse_break_on {
     return unless (@_ == 2);
-    if ( ($] < 5.005) and ($] >= 5.004) ) {
-	nocarp or carp "\npulse_break_on not supported on version $]\n";
-	return;
-    }
     my $self = shift;
     my $delay = shift;
     $self->break_active(1) or carp "Did not pulse BREAK on";
@@ -2271,10 +2272,6 @@ sub pulse_break_on {
 
 sub pulse_dtr_on {
     return unless (@_ == 2);
-    if ( ($] < 5.005) and ($] >= 5.004) ) {
-	nocarp or carp "\npulse_dtr_on not supported on version $]\n";
-	return;
-    }
     my $self = shift;
     my $delay = shift;
     $self->dtr_active(1) or carp "Did not pulse DTR on";
@@ -2285,10 +2282,6 @@ sub pulse_dtr_on {
 
 sub pulse_rts_on {
     return unless (@_ == 2);
-    if ( ($] < 5.005) and ($] >= 5.004) ) {
-	nocarp or carp "\npulse_rts_on not supported on version $]\n";
-	return;
-    }
     my $self = shift;
     my $delay = shift;
     $self->rts_active(1) or carp "Did not pulse RTS on";
@@ -2417,8 +2410,8 @@ Win32API::CommPort - Raw Win32 system API calls for serial communications.
 =head1 SYNOPSIS
 
   use Win32;	## not required under all circumstances
-  require 5.003;
-  use Win32API::CommPort qw( :PARAM :STAT 0.19 );
+  require 5.006;
+  use Win32API::CommPort qw( :PARAM :STAT 0.20 );
 
   ## when available ##  use Win32API::File 0.07 qw( :ALL );
 
@@ -2463,6 +2456,7 @@ Win32API::CommPort - Raw Win32 system API calls for serial communications.
   $a = $PortObj->can_rlsd;    	 # receive line signal detect (carrier)
   $a = $PortObj->can_rlsd_config;
   $a = $PortObj->can_16bitmode;
+  $a = $PortObj->can_ioctl;	# false, unix only
   $a = $PortObj->is_rs232;
   $a = $PortObj->is_modem;
   $a = $PortObj->can_rtscts;
@@ -2561,7 +2555,6 @@ Additional useful constants may be exported eventually.
   $PortObj->pulse_dtr_on($milliseconds);
   $PortObj->pulse_dtr_off($milliseconds);
       # sets_bit, delays, resets_bit, delays
-      # pulse_xxx methods not supported on Perl 5.004
 
   $ModemStatus = $PortObj->is_modemlines;
   if ($ModemStatus & $PortObj->MS_RLSD_ON) { print "carrier detected"; }
@@ -2697,9 +2690,7 @@ is called. They set the requested state, delay the specified number of
 milliseconds, set the opposite state, and again delay the specified time.
 These methods are designed to support devices, such as the X10 "FireCracker"
 control and some modems, which require pulses on these lines to signal
-specific events or data. Since the 5.00402 Perl distribution from CPAN does
-not support sub-second time delays readily, these methods are not supported
-on that version of Perl.
+specific events or data.
 
   $PortObj->pulse_break_on($milliseconds);
   $PortObj->pulse_rts_on($milliseconds);
@@ -3067,9 +3058,6 @@ but it works.
 
 On NT, a B<read_done> or B<write_done> returns I<False> if a background
 operation is aborted by a purge. Win95 returns I<True>.
-
-EXTENDED_OS_ERROR ($^E) is not supported by the binary ports before 5.005.
-It "sort-of-tracks" B<$!> in 5.003 and 5.004, but YMMV.
 
 A few NT systems seem to set B<can_parity_enable> true, but do not actually
 support setting B<is_parity_enable>. This may be a characteristic of certain

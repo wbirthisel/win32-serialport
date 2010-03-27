@@ -11,7 +11,8 @@
 # must be LF-only line ends to run on both platforms
 
 use strict;
-use vars qw($OS_win);
+use warnings;
+our $OS_win;
 
 BEGIN {
         $OS_win = ($^O eq "MSWin32") ? 1 : 0;
@@ -36,7 +37,7 @@ BEGIN {
 die "\nUsage: perl any_os.plx PORT\n" unless (@ARGV);
 my $port = shift @ARGV;
 
-my $serial_port; 
+my $serial_port;
 
 if ($OS_win) {
     $serial_port = Win32::SerialPort->new ($port,1);

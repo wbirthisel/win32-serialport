@@ -4,13 +4,15 @@ use strict;
 use warnings;
 
 use Win32;
-use Win32API::CommPort qw( :STAT :PARAM 0.17 );
+use Win32API::CommPort qw( :STAT :PARAM 0.20 );
 
 use Carp;
 
-our $VERSION = '0.19';
+our $VERSION = '0.20';
 
-use parent qw( Exporter Win32API::CommPort );
+require Exporter;
+
+our @ISA = qw( Exporter Win32API::CommPort );
 
 our @EXPORT= qw();
 our @EXPORT_OK= @Win32API::CommPort::EXPORT_OK;
@@ -159,6 +161,11 @@ sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $device = shift;
+    my $alias = $device;
+    if ($device =~ /^COM\d+$/io) {
+	$device = '\\\\.\\' . $device;
+	# required COM10 and beyond, done for all to facilitate testing
+    }
     my @new_cmd = ($device);
     my $quiet = shift;
     if ($quiet) {
@@ -309,7 +316,7 @@ sub new {
     $self->{"_N_CFG_2"}		= 0;
     $self->{"_N_CFG_3"}		= 0;
 
-    $self->{ALIAS} 	= $device;	# so "\\.\+++" can be changed
+    $self->{ALIAS} 	= $alias;	# so "\\.\+++" can be changed
     $self->{DEVICE} 	= $device;	# clone so NAME stays in CommPort
 
     ($self->{MAX_RXB}, $self->{MAX_TXB}) = $self->buffer_max;
@@ -560,26 +567,20 @@ sub is_prompt {
 sub are_match {
     my $self = shift;
     my $pat;
-    my $patno = 0;
-    my $reno = 0;
     my $re_next = 0;
     if (@_) {
 	@{ $self->{"_MATCH"} } = @_;
-	if ($] >= 5.005) {
-	    @{ $self->{"_CMATCH"} } = ();
-	    while ($pat = shift) {
-	        if ($re_next) {
-		    $re_next = 0;
-	            eval 'push (@{ $self->{"_CMATCH"} }, qr/$pat/)';
-		} else {
-	            push (@{ $self->{"_CMATCH"} }, $pat);
-		}
-	        if ($pat eq "-re") {
-		    $re_next++;
-	        }
+	@{ $self->{"_CMATCH"} } = ();
+	while ($pat = shift) {
+	    if ($re_next) {
+		$re_next = 0;
+	        eval 'push (@{ $self->{"_CMATCH"} }, qr/$pat/)';
+	   } else {
+	        push (@{ $self->{"_CMATCH"} }, $pat);
+	   }
+	   if ($pat eq "-re") {
+		$re_next++;
 	    }
-	} else {
-	    @{ $self->{"_CMATCH"} } = @_;
 	}
     }
     return @{ $self->{"_MATCH"} };
@@ -592,12 +593,12 @@ sub get_start_values {
     my $self = shift;
     my $filename = shift;
 
-    unless ( open my $cf, '<', $filename ) {
+    unless ( open CF, "<$filename" ) {
         carp "can't open file: $filename";
         return;
     }
-    my ($signature, $name, @values) = <$cf>;
-    close $cf;
+    my ($signature, $name, @values) = <CF>;
+    close CF;
 
     unless ( $cfg_file_sig eq $signature ) {
         carp "Invalid signature in $filename: $signature";
@@ -663,12 +664,12 @@ sub start {
     return unless (@_);
     my $filename = shift;
 
-    unless ( open my $cf, '<', $filename ) {
+    unless ( open CF, "<$filename" ) {
         carp "can't open file: $filename";
         return;
     }
-    my ($signature, $name, @values) = <$cf>;
-    close $cf;
+    my ($signature, $name, @values) = <CF>;
+    close CF;
 
     unless ( $cfg_file_sig eq $signature ) {
         carp "Invalid signature in $filename: $signature";
@@ -731,22 +732,22 @@ sub save {
     }
 
     my $filename = shift;
-    unless ( open my $cf, '>', $filename ) {
+    unless ( open CF, ">$filename" ) {
         carp "can't open file: $filename";
         return;
     }
-    print {$cf} "$cfg_file_sig";
-    print {$cf} "$self->{DEVICE}\n";
+    print CF "$cfg_file_sig";
+    print CF "$self->{DEVICE}\n";
 	# used to "reopen" so must be DEVICE=NAME
 
     no strict 'refs';		# for $gosub
     while (($item, $getsub) = each %validate) {
         chomp $getsub;
 	$value = scalar &$getsub($self);
-        print {$cf} "$item,$value\n";
+        print CF "$item,$value\n";
     }
     use strict 'refs';
-    close {$cf};
+    close CF;
     if ($Verbose) {
         print "wrote file $filename for $self->{ALIAS}\n";
     }
@@ -1006,6 +1007,11 @@ sub error_msg {
     return wantarray ? @binary_opt : $self->{E_MSG};
 }
 
+sub device { ## readonly for test suite
+    my $self = shift;
+    return $self->{DEVICE};
+}
+
 sub devicetype {
     my $self = shift;
     if (@_) { $self->{DVTYPE} = shift; } # return true for legal names
@@ -1242,11 +1248,7 @@ sub lastline {
     my $self = shift;
     if (@_) {
         $self->{"_LASTLINE"} = shift;
-	if ($] >= 5.005) {
-	    eval '$self->{"_CLASTLINE"} = qr/$self->{"_LASTLINE"}/';
-	} else {
-            $self->{"_CLASTLINE"} = $self->{"_LASTLINE"};
-	}
+	eval '$self->{"_CLASTLINE"} = qr/$self->{"_LASTLINE"}/';
     }
     return $self->{"_LASTLINE"};
 }
@@ -1865,7 +1867,8 @@ sub argv_char {
 }
 
 sub debug {
-    my $self = shift;
+    my $self = shift || '';	# call be called as sub without object
+    return @binary_opt if (wantarray);
     if (ref($self))  {
         if (@_) { $self->{"_DEBUG"} = yes_true ( shift ); }
         else {
@@ -1875,7 +1878,14 @@ sub debug {
             return $self->{"_DEBUG"};
         }
     } else {
-        $Verbose = yes_true ($self);
+	if ($self =~ m/Port/io) {
+	    # cover the case when someone uses the pseudohash calling style
+	    # $obj->debug() on an unblessed $obj (old test cases do that)
+	    $self = shift || '';
+	}
+	if ($self ne '') {
+        	$Verbose = yes_true ($self);
+	}
         nocarp || carp "SerialPort Debug Class = $Verbose";
 	Win32API::CommPort::debug_comm($Verbose);
         return $Verbose;
@@ -1955,6 +1965,7 @@ Win32::SerialPort - User interface to Win32 Serial API calls
      # specials for test suite only
   @necessary_param = Win32::SerialPort->set_test_mode_active(1);
   $PortObj->lookclear("loopback to next 'input' method");
+  $name = $PortObj->device();        # readonly for test suite
 
 =head2 Configuration Parameter Methods
 
@@ -2150,7 +2161,7 @@ These return scalar context only.
   can_16bitmode       is_rs232               is_modem
   can_rtscts          can_xonxoff            can_xon_char
   can_spec_char       can_interval_timeout   can_total_timeout
-  buffer_max          can_rlsd_config
+  buffer_max          can_rlsd_config        can_ioctl
 
 =head2 Operating Methods inherited from Win32API::CommPort
 
@@ -2283,6 +2294,14 @@ will complain. Consider this A Good Thing. Use B<alias> to convert the
 name used by "built-in" messages.
 
   $P2->alias("FIDO");
+
+Beginning with version 0.20, the prefix is added automatically to device
+names that match the regular expression "^COM\d+$" so that COM10, COM11,
+etc. do not require separate handling. A corresponding alias is created.
+Hence, for the first constructor above:
+
+  $alias = $P1->alias;    # $alias = "COM1"
+  $device = $P1->device:  # $device = "\\.\COM1" 
 
 The second constructor, B<start> is intended to simplify scripts which
 need a constant setup. It executes all the steps from B<new> to
@@ -2745,7 +2764,7 @@ B<READLINE>. The default for B<linesize> is 1. There is no default for
 the B<lastline> method.
 
 In Version 0.15, I<Regular Expressions> set by B<are_match> and B<lastline>
-will be pre-compiled using the I<qr//> construct on Perl 5.005 and higher.
+will be pre-compiled using the I<qr//> construct.
 This doubled B<lookfor> and B<streamline> speed in my tests with
 I<Regular Expressions> - but actual improvements depend on both patterns
 and input data.
@@ -2808,7 +2827,7 @@ I<FileHandle>, you must use B<tie> as the constructor.
 
 e.g. the following is WRONG!!____C<print $PortObj "some text";>
 
-You need something like this (Perl 5.005):
+You need something like this:
 
         # construct
     $tie_ob = tie(*FOO,'Win32::SerialPort', $cfgfile)
@@ -2831,10 +2850,6 @@ You need something like this (Perl 5.005):
 
 Always include the C<undef $tie_ob> before the B<untie>. See the I<Gotcha>
 description in I<perltie>.
-
-The Perl 5.004 implementation of I<tied FileHandles> is missing
-B<close> and B<syswrite>. The Perl 5.003 version is essentially unusable.
-If you need these functions, consider Perl 5.005 seriously.
 
 An important note about Win32 filenames. The reserved device names such
 as C< COM1, AUX, LPT1, CON, PRN > can NOT be used as filenames. Hence
@@ -2908,9 +2923,6 @@ but it works.
 
 On NT, a B<read_done> or B<write_done> returns I<False> if a background
 operation is aborted by a purge. Win95 returns I<True>.
-
-EXTENDED_OS_ERROR ($^E) is not supported by the binary ports before 5.005.
-It "sort-of-tracks" B<$!> in 5.003 and 5.004, but YMMV.
 
 A few NT systems seem to set B<can_parity_enable> true, but do not actually
 support setting B<parity_enable>. This may be a characteristic of certain

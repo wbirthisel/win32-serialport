@@ -19,7 +19,7 @@ lib/Win32/SerialPort.pm
 lib/Win32API/CommPort.pm
 html/Win32/SerialPort.html
 html/Win32API/CommPort.html
-Altport.pm
+t/AltPort.pm
 t/test1.t
 t/test2.t
 t/test3.t

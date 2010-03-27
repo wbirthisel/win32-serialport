@@ -1,45 +1,75 @@
-####    use ExtUtils::MakeMaker;
-####    # See lib/ExtUtils/MakeMaker.pm for details of how to influence
-####    # the contents of the Makefile that is written.
-####    WriteMakefile(
-####        'NAME'	=> 'SerialPort',
-####        'VERSION_FROM' => 'SerialPort.pm', # finds $VERSION
-####    );
+use 5.006;
+use strict;
+use warnings;
+use ExtUtils::MakeMaker;
 
-my $version = "0.19";
-my $file = "COM1";
+my $version = "0.20";	# for nomake versions
+
+my @SERIALS;
+
+# Scan for argument we know about
+my @passargs;
 if (@ARGV) {
-    $file = shift @ARGV;
+	foreach my $arg (@ARGV) {
+		my ($key,$value)=split /=/, $arg, 2;
+		if ($key eq "TESTPORT") {
+			push(@SERIALS,$value);
+		}
+		else {
+			push(@passargs,$arg);
+		}
+	}
 }
+@ARGV=@passargs;
+
+my $file = "COM1";
+if (@SERIALS) {
+    # only first one is relevant
+    $file = shift @SERIALS;
+}
+
+print <<COMMENTS;
+            Win32::SerialPort and Win32API::CommPort
+                        VERSION $version
+
+A 'Makefile' created for those with 'make' or CPAN.pm users.
+It will test using PORT = $file. To test using a different PORT,
+run again specifying: 'perl Makefile.PL TESTPORT=<PORT>'
+The normal 'Mantra' would then apply:
+        make
+        make test
+        make install
+
+For those without 'make' or an equivalent like 'nmake' or 'dmake' there
+are perl-only scripts which do the same things:
+        Test with:    perl nomake_test
+        Install with: perl nomake_install
+
+Test with nothing connected to $file.
+PORT is not verified present and accessible until tests run.
+Timeout tests can take up to 30 seconds per test.
+COMMENTS
 
 my $dfile = "t/DefaultPort.pm";
 unlink $dfile;
 print "\nCreating new $dfile\n";
-open my $default, '>', $dfile or die "Can't create $dfile: $!\n";
-print {$default} <<EOF;
+open (DEFAULT, "> $dfile") or die "Can't create $dfile: $!\n";
+print DEFAULT <<EOF;
 package SerialJunk;
 # Created by Makefile.PL
 
 \$Makefile_Test_Port = "$file";
 EOF
 
-close $default;
+close DEFAULT;
 
-print "\n             Win32::SerialPort and Win32API::CommPort\n";
-print "                           VERSION $version\n";
-print "                  No 'Makefile' will be created\n";
-print "                  Test with:    perl test.pl\n";
-print "                  Install with: perl install.pl\n\n";
-print "              Test with nothing connected to $file\n";
-print "           or for different port: perl test.pl PORT\n";
-print "         Timeout tests can take up to 30 seconds per test\n\n";
 
-$dfile = "test.pl";
+$dfile = "nomake_test";
 unlink $dfile;
 print "Creating new $dfile\n";
-open my $default, '>', $dfile or die "Can't create $dfile: $!\n";
+open (DEFAULT, "> $dfile") or die "Can't create $dfile: $!\n";
 
-print {$default} <<"TEST4";
+print DEFAULT <<TEST4;
 # Created by Makefile.PL
 # VERSION $version
 
@@ -47,27 +77,28 @@ use Test::Harness;
 runtests ("t/test1.t", "t/test2.t", "t/test3.t", "t/test4.t",
 	  "t/test5.t", "t/test6.t", "t/test7.t");
 
-print "\\nTo run individual tests, type:\\n";
-print "    C:\\> perl t/test1.t Page_Pause_Time (0..5) [ $file ]\\n";
-print "\\nContinue with 'perl t/test2.t' through 'perl t/test7.t'\\n";
-print "See README and other documentation for additional information.\\n\\n";
+# To run individual tests, type:
+#     C:\\> perl t/test1.t [ $file ]
+# Continue with 'perl t/test2.t' through 'perl t/test7.t'
+# See README and other documentation for additional information.
 TEST4
 
-close $default;
+close DEFAULT;
 
-$dfile = "install.pl";
+$dfile = "nomake_install";
 unlink $dfile;
 print "Creating new $dfile\n";
-open my $default, '>', $dfile or die "Can't create $dfile: $!\n";
+open (DEFAULT, "> $dfile") or die "Can't create $dfile: $!\n";
 
-print {$default} <<"INST4";
+print DEFAULT <<INST4;
 # Created by Makefile.PL
 # VERSION $version
 
-BEGIN { require 5.004; }
+use 5.006;
 
-use Config qw(\%Config);
+use Config;
 use strict;
+use warnings;
 use ExtUtils::Install qw( install );
 
 my \$FULLEXT = "Win32/SerialPort";
@@ -86,19 +117,43 @@ elsif (exists \$Config{installprivlib} ) {
 
 if ( length (\$html_dest) ) {
     \$html_dest .= '\\lib\\site';
-}
-else {
-    die "Can't find html base directory. Edit install.pl manually.\\n";
-}
-
-install({
+    install({
 	   read => "\$Config{sitearchexp}/auto/\$FULLEXT/.packlist",
 	   write => "\$Config{installsitearch}/auto/\$FULLEXT/.packlist",
 	   \$INST_LIB => "\$Config{installsitelib}",
 	   \$HTML_LIB => "\$html_dest"
 	  },1,0,0);
+}
+else {
+    warn "Can't find html base directory. Skipping doc install\\n";
+    install({
+	   read => "\$Config{sitearchexp}/auto/\$FULLEXT/.packlist",
+	   write => "\$Config{installsitearch}/auto/\$FULLEXT/.packlist",
+	   \$INST_LIB => "\$Config{installsitelib}",
+	  },1,0,0);
+}
 
 __END__
 INST4
 
-close $default;
+close DEFAULT;
+
+my %mm_args=(
+    'NAME'          => 'Win32::SerialPort',
+    'VERSION_FROM' => 'lib/Win32/SerialPort.pm', # finds $VERSION
+    'PREREQ_PM'     => {
+				'Test::More' => 0,
+			}, # e.g., Module::Name => 1.1
+    'ABSTRACT_FROM' => 'lib/Win32/SerialPort.pm', # retrieve abstract from module
+    'AUTHOR'        => 'Bill Birthisel <wcbirthisel@alum.mit.edu>',
+    'LIBS'          => [''], # e.g., '-lm'
+    'DEFINE'        => '', # e.g., '-DHAVE_SOMETHING'
+    'INC'           => '-I.', # e.g., '-I. -I/usr/include/other'
+    'clean'         => { 'FILES' => "t/DefaultPort.pm *.cfg t/*.cfg" },
+    'realclean'     => { 'FILES' => "nomake_test nomake_install" },
+);
+
+# See lib/ExtUtils/MakeMaker.pm for details of how to influence
+# the contents of the Makefile that is written.
+WriteMakefile(%mm_args);
+
