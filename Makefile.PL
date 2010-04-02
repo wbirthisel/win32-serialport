@@ -53,23 +53,23 @@ COMMENTS
 my $dfile = "t/DefaultPort.pm";
 unlink $dfile;
 print "\nCreating new $dfile\n";
-open (DEFAULT, "> $dfile") or die "Can't create $dfile: $!\n";
-print DEFAULT <<EOF;
+open my $default, '>', $dfile or die "Can't create $dfile: $!\n";
+print {$default} <<EOF;
 package SerialJunk;
 # Created by Makefile.PL
 
 \$Makefile_Test_Port = "$file";
 EOF
 
-close DEFAULT;
+close $default;
 
 
 $dfile = "nomake_test";
 unlink $dfile;
 print "Creating new $dfile\n";
-open (DEFAULT, "> $dfile") or die "Can't create $dfile: $!\n";
+open my $default, '>', $dfile or die "Can't create $dfile: $!\n";
 
-print DEFAULT <<TEST4;
+print {$default} <<"TEST4";
 # Created by Makefile.PL
 # VERSION $version
 
@@ -83,14 +83,14 @@ runtests ("t/test1.t", "t/test2.t", "t/test3.t", "t/test4.t",
 # See README and other documentation for additional information.
 TEST4
 
-close DEFAULT;
+close $default;
 
 $dfile = "nomake_install";
 unlink $dfile;
 print "Creating new $dfile\n";
-open (DEFAULT, "> $dfile") or die "Can't create $dfile: $!\n";
+open my $default, '>', $dfile or die "Can't create $dfile: $!\n";
 
-print DEFAULT <<INST4;
+print {$default} <<"INST4";
 # Created by Makefile.PL
 # VERSION $version
 
@@ -136,14 +136,13 @@ else {
 __END__
 INST4
 
-close DEFAULT;
-
+close $default;
 my %mm_args=(
     'NAME'          => 'Win32::SerialPort',
     'VERSION_FROM' => 'lib/Win32/SerialPort.pm', # finds $VERSION
-    'PREREQ_PM'     => {
-				'Test::More' => 0,
-			}, # e.g., Module::Name => 1.1
+    'PREREQ_PM'     =>	{
+						'Test::More' => 0,
+						}, # e.g., Module::Name => 1.1
     'ABSTRACT_FROM' => 'lib/Win32/SerialPort.pm', # retrieve abstract from module
     'AUTHOR'        => 'Bill Birthisel <wcbirthisel@alum.mit.edu>',
     'LIBS'          => [''], # e.g., '-lm'
@@ -156,4 +155,3 @@ my %mm_args=(
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 WriteMakefile(%mm_args);
-
