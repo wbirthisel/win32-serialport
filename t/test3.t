@@ -1,33 +1,24 @@
-#! perl -w
-
-use lib '.','./t','..','./lib','../lib';
+use lib '.','./t','./lib','../lib';
 # can run from here or distribution base
-require 5.003;
 
-# Before installation is performed this script should be runnable with
-# `perl test3.t time' which pauses `time' seconds (0..5) between pages
+use Test::More;
+### use Data::Dumper;
+eval "use DefaultPort;";
+if ($@) {
+    plan skip_all => 'No serial port selected for use with testing';
+}
+else {
+    plan tests => 264;
+}
+cmp_ok($AltPort::VERSION, '>=', 0.20, 'VERSION check');
 
-######################### We start with some black magic to print on failure.
+# USB and virtual ports can't test output timing, first fail will set this
+my $BUFFEROUT=0;
 
-# Change 1..1 below to 1..last_test_to_print .
-# (It may become useful if the test is moved to ./t subdirectory.)
-
-BEGIN { $| = 1; print "1..244\n"; }
-END {print "not ok 1\n" unless $loaded;}
-use AltPort qw( :STAT :PARAM 0.19 );		# check inheritance & export
-require "DefaultPort.pm";
-$loaded = 1;
-print "ok 1\n";
-
-######################### End of black magic.
-
-# Insert your test code below (better if it prints "ok 13"
-# (correspondingly "not ok 13") depending on the success of chunk 13
-# of the test code):
-
-# assume a "vanilla" port on "COM1"
+use AltPort qw( :STAT :PARAM 0.20 );
 
 use strict;
+use warnings;
 
 ## verifies the (0, 1) list returned by binary functions
 sub test_bin_list {
@@ -68,28 +59,9 @@ sub test_byte_value {
     return 1;
 }
 
-my $tc = 2;		# next test number
-
-sub is_ok {
-    my $result = shift;
-    printf (($result ? "" : "not ")."ok %d\n",$tc++);
-    return $result;
-}
-
-sub is_zero {
-    my $result = shift;
-    if (defined $result) {
-        return is_ok ($result == 0);
-    }
-    else {
-        printf ("not ok %d\n",$tc++);
-    }
-}
-
 sub is_bad {
-    my $result = shift;
-    printf (($result ? "not " : "")."ok %d\n",$tc++);
-    return (not $result);
+    local $Test::Builder::Level = $Test::Builder::Level + 1;
+    return ok(!shift, shift);
 }
 
 my $file = "COM1";
@@ -100,13 +72,6 @@ if (exists $ENV{Makefile_Test_Port}) {
     $file = $ENV{Makefile_Test_Port};
 }
 
-my $naptime = 0;	# pause between output pages
-if (@ARGV) {
-    $naptime = shift @ARGV;
-    unless ($naptime =~ /^[0-5]$/) {
-	die "Usage: perl test?.t [ page_delay (0..5) ] [ COMx ]";
-    }
-}
 if (@ARGV) {
     $file = shift @ARGV;
 }
@@ -123,15 +88,14 @@ my $out;
 my $err;
 my $blk;
 my $e;
+my $s="testing is a wonderful thing - this is a 60 byte long string";
+#      123456789012345678901234567890123456789012345678901234567890
+my $line = $s.$s.$s;		# about 185 MS at 9600 baud
 my $tick;
 my $tock;
 my %required_param;
 
-my $s="testing is a wonderful thing - this is a 60 byte long string";
-#      123456789012345678901234567890123456789012345678901234567890
-my $line = $s.$s.$s;		# about 185 MS at 9600 baud
-
-is_ok(0x0 == nocarp);				# 2
+is(AltPort::nocarp, 0, 'nocarp');				# 2
 my @necessary_param = AltPort->set_test_mode_active(1);
 
 unlink $cfgfile;
@@ -139,192 +103,172 @@ foreach $e (@necessary_param) { $required_param{$e} = 0; }
 
 # 3: Constructor
 
-unless (is_ok ($ob = AltPort->new ($file))) {
-    die "could not open port $file\n";		# 3
-    # next test would die at runtime without $ob
-}
+ok($ob = AltPort->new ($file), "new $file");
+die unless ($ob);    # next tests would die at runtime
 
-is_zero($ob->debug);				# 4
+is($ob->debug, 0, 'no debug init');
+is($ob->debug(1), 1, 'set debug');
+is($ob->debug(2), 0, 'invalid set debug');
+is($ob->debug(1), 1, 'set debug');
+is($ob->debug, 1, 'read debug state');
+is($ob->debug(0), 0, 'set and read debug off');
 
-is_ok($ob->debug(1));				# 5
+#### 20 - 38: Check Port Capabilities 
 
-is_zero($ob->debug(0));				# 6
+ok($ob->can_baud, 'can_baud');
+ok($ob->can_databits, 'can_databits');
+ok($ob->can_stopbits, 'can_stopbits');
+ok($ob->can_dtrdsr, 'can_dtrdsr');
+ok($ob->can_handshake, 'can_handshake');
+ok($ob->can_parity_check, 'can_parity_check');
+ok($ob->can_parity_config, 'can_parity_config');
+ok($ob->can_parity_enable, 'can_parity_enable');
+ok($ob->can_rtscts, 'can_ctsrts');
+ok($ob->can_rlsd, 'can_rlsd');
+ok($ob->can_xonxoff, 'can_xonxoff');
+ok($ob->can_interval_timeout, 'can_interval_timeout');
+ok($ob->can_total_timeout, 'can_total_timeout');
+ok($ob->can_xon_char, 'can_xon_char');
+ok($ob->is_rs232, 'is_rs232');
 
-is_zero($ob->debug);				# 7
+is($ob->can_spec_char, 0, 'can_spec_char');
+is($ob->can_ioctl, 0, 'can_ioctl');
+is($ob->can_16bitmode, 0, 'can_16bitmode');
+is_bad($ob->is_modem, 'is_modem');
 
-
-#### 8 - 99: Check Port Capabilities 
-
-## 8 - 21: Binary Capabilities
-
-is_ok(scalar $ob->can_baud);			# 8
-is_ok(scalar $ob->can_databits);		# 9
-is_ok(scalar $ob->can_stopbits);		# 10
-is_ok(scalar $ob->can_dtrdsr);			# 11
-is_ok(scalar $ob->can_handshake);		# 12
-is_ok(scalar $ob->can_parity_check);		# 13
-is_ok(scalar $ob->can_parity_config);		# 14
-
-is_ok(scalar $ob->can_parity_enable);		# 15
-is_ok(scalar $ob->can_rlsd);			# 16
-is_ok(scalar $ob->can_rtscts);			# 17
-is_ok(scalar $ob->can_xonxoff);			# 18
-is_ok(scalar $ob->can_interval_timeout);	# 19
-is_ok(scalar $ob->can_total_timeout);		# 20
-is_ok(scalar $ob->can_xon_char);		# 21
-
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
-
-## 22 - 24: Unusual Parameters (for generic port)
-
-$fail=$ob->can_spec_char;			# 22
-printf (($fail ? "spec_char not generic but " : "")."ok %d\n",$tc++);
-
-$fail=$ob->can_16bitmode;			# 23
-printf (($fail ? "16bitmode not generic but " : "")."ok %d\n",$tc++);
-
-$pass=$ob->is_rs232;				# 24
-$in = $ob->is_modem;				# 24 alternate
-if ($pass)	{ printf ("ok %d\n", $tc++); }
-elsif ($in)	{ printf ("modem is ok %d\n", $tc++); }
-else	 	{ printf ("not ok %d\n", $tc++); }
-
-
-## 25 - 43: Byte Capabilities
+## 25 - 44: Byte Capabilities
 
 $in = $ob->xon_char;
-is_ok(test_byte_value($in));			# 25
-is_bad(scalar $ob->xon_char(500));		# 26
+ok(test_byte_value($in), 'xon_char value');
+is_bad(scalar $ob->xon_char(500), 'byte limit');
 @opts = $ob->xon_char;
-is_ok(test_byte_list(@opts));			# 27
-is_ok(scalar $ob->xon_char(0x11));		# 28
+ok(test_byte_list(@opts), 'xon_char range');
+ok(scalar $ob->xon_char(0x11), 'set xon_char');
 
 $in = $ob->xoff_char;
-is_ok(test_byte_value($in));			# 29
-is_bad(scalar $ob->xoff_char(-1));		# 30
+ok(test_byte_value($in), 'xoff_char value');
+is_bad(scalar $ob->xoff_char(-1), 'byte limit');
 @opts = $ob->xoff_char;
-is_ok(test_byte_list(@opts));			# 31
-is_ok(scalar $ob->xoff_char(0x13));		# 32
+ok(test_byte_list(@opts), 'xoff_char range');
+ok(scalar $ob->xoff_char(0x13), 'set xoff_char');
 
 $in = $ob->eof_char;
-is_ok(test_byte_value($in));			# 33
-is_bad(scalar $ob->eof_char(500));		# 34
+ok(test_byte_value($in), 'eof_char value');
+is_bad(scalar $ob->eof_char(500), 'byte limit');
 @opts = $ob->eof_char;
-is_ok(test_byte_list(@opts));			# 35
-is_zero(scalar $ob->eof_char(0));		# 36
+ok(test_byte_list(@opts), 'eof_char range');
+is(scalar $ob->eof_char(0), 0, 'set eof_char');
 
 $in = $ob->event_char;
-is_ok(test_byte_value($in));			# 37
-is_bad(scalar $ob->event_char(5000));		# 38
+ok(test_byte_value($in), 'event_char value');
+is_bad(scalar $ob->event_char(5000), 'byte limit');
 @opts = $ob->event_char;
-is_ok(test_byte_list(@opts));			# 39
-is_zero(scalar $ob->event_char(0x0));		# 40
-
+ok(test_byte_list(@opts), 'event_char range');
+is(scalar $ob->event_char(0), 0, 'set event_char');
 
 $in = $ob->error_char;
-is_ok(test_byte_value($in));			# 41
-is_bad(scalar $ob->error_char(65600));		# 42
+ok(test_byte_value($in), 'error_char value');
+is_bad(scalar $ob->error_char(65600), 'byte limit');
 @opts = $ob->error_char;
-is_ok(test_byte_list(@opts));			# 43
+ok(test_byte_list(@opts), 'error_char range');
+is(scalar $ob->error_char(0), 0, 'set error_char');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
+#### 45 - 93: Set Basic Port Parameters wth are_xx and is_xx 
 
-is_zero(scalar $ob->error_char(0x0));		# 44
+## set once with valid values before trying invalid
 
-
-#### 45 - 93: Set Basic Port Parameters 
-
-## 45 - 50: Baud (Valid/Invalid/Current)
-
-@opts=$ob->are_baudrate;		# list of allowed values
-is_ok(1 == grep(/^9600$/, @opts));		# 45
-is_zero(scalar grep(/^9601/, @opts));		# 46
-
-is_ok($in = $ob->is_baudrate);			# 47
-is_ok(1 == grep(/^$in$/, @opts));		# 48
-
-is_bad(scalar $ob->is_baudrate(9601));		# 49
-is_ok($in == $ob->is_baudrate(9600));		# 50
-    # leaves 9600 pending
-
-
-## 51 - 56: Parity (Valid/Invalid/Current)
-
-@opts=$ob->are_parity;		# list of allowed values
-is_ok(1 == grep(/none/, @opts));		# 51
-is_zero(scalar grep(/any/, @opts));		# 52
-
-is_ok($in = $ob->is_parity);			# 53
-is_ok(1 == grep(/^$in$/, @opts));		# 54
-
-is_bad(scalar $ob->is_parity("any"));		# 55
-is_ok($in eq $ob->is_parity("none"));		# 56
-    # leaves "none" pending
+ok($pass = $ob->is_baudrate, 'existing baudrate');
+is(scalar $ob->is_baudrate($pass), $pass, "valid set $pass baud");
+ok($pass = $ob->is_parity, 'existing parity');
+is(scalar $ob->is_parity($pass), $pass, "valid set $pass parity");
 
 ## 57: Missing Param test
 
-is_bad($ob->write_settings);			# 57
+is_bad(scalar $ob->write_settings, 'write_settings prerequisites missing');
 
+ok($pass = $ob->is_databits, 'existing databits');
+is($ob->is_databits($pass), $pass, "valid set $pass databits");
+ok($pass = $ob->is_stopbits, 'existing stopbits');
+is($ob->is_stopbits($pass), $pass, "valid set $pass stopbits");
+ok($pass = $ob->is_handshake, 'existing handshake');
+is($ob->is_handshake($pass), $pass, "valid set $pass handshake");
+
+ok(scalar $ob->write_settings, 'write_settings prerequisites');
+
+## 45 - 50: Baud (Valid/Invalid/Current)
+
+@opts=$ob->are_baudrate;
+ok(1 == grep(/^9600$/, @opts), '9600 baud in list');
+ok(0 == grep(/^9601$/, @opts), '9601 baud not in list');
+
+ok($in = $ob->is_baudrate, 'read is_baudrate');
+ok(1 == grep(/^$in$/, @opts), "confirm $in in list");
+
+is_bad(scalar $ob->is_baudrate(9601), 'cannot set 9601 baud');
+is(scalar $ob->is_baudrate(9600), 9600, 'can set 9600 baud');
+    # leaves 9600 pending
+
+## 51 - 56: Parity (Valid/Invalid/Current)
+
+@opts=$ob->are_parity;
+ok(1 == grep(/none/, @opts), 'parity none in list');
+ok(0 == grep(/any/, @opts), 'parity any not in list');
+
+ok($in = $ob->is_parity, 'read is_parity');
+ok(1 == grep(/^$in$/, @opts), "confirm $in in list");
+
+is_bad(scalar $ob->is_parity("any"), 'cannot set any parity');
+is(scalar $ob->is_parity("none"), 'none', 'can set none parity');
+    # leaves "none" pending
 
 ## 58 - 63: Databits (Valid/Invalid/Current)
 
-@opts=$ob->are_databits;		# list of allowed values
-is_ok(1 == grep(/8/, @opts));			# 58
-is_zero(scalar grep(/4/, @opts));		# 59
+@opts=$ob->are_databits;
+ok(1 == grep(/8/, @opts), 'databits 8 in list');
+ok(0 == grep(/4/, @opts), 'databits 4 not in list');
 
-is_ok($in = $ob->is_databits);			# 60
-is_ok(1 == grep(/^$in$/, @opts));		# 61
+ok($in = $ob->is_databits, 'read is_databits');
+ok(1 == grep(/^$in$/, @opts), "confirm $in in list");
 
-is_bad(scalar $ob->is_databits(3));		# 62
-is_ok($in == $ob->is_databits(8));		# 63
+is_bad(scalar $ob->is_databits(3), 'cannot set 3 databits');
+is($ob->is_databits(8), 8, 'can set 8 databits');
     # leaves 8 pending
 
 
 ## 64 - 69: Stopbits (Valid/Invalid/Current)
 
-@opts=$ob->are_stopbits;		# list of allowed values
-is_ok(1 == grep(/1.5/, @opts));			# 64
-is_zero(scalar grep(/3/, @opts));		# 65
+@opts=$ob->are_stopbits;
+ok(1 == grep(/^1$/, @opts), 'one stopbit in list');
+ok(0 == grep(/3/, @opts), 'three stopbits not in list');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
+ok($in = $ob->is_stopbits, 'read is_stopbits');
+ok(1 == grep(/^$in$/, @opts), "confirm $in in list");
 
-is_ok($in = $ob->is_stopbits);			# 66
-is_ok(1 == grep(/^$in$/, @opts));		# 67
-
-is_bad(scalar $ob->is_stopbits(3));		# 68
-is_ok($in == $ob->is_stopbits(1));		# 69
+is_bad(scalar $ob->is_stopbits(3), 'cannot set 3 stopbits');
+is($ob->is_stopbits(1), 1, 'can set 1 stopbit');
     # leaves 1 pending
 
 
 ## 70 - 75: Handshake (Valid/Invalid/Current)
 
-@opts=$ob->are_handshake;		# list of allowed values
-is_ok(1 == grep(/none/, @opts));		# 70
-is_zero(scalar grep(/moo/, @opts));		# 71
+@opts=$ob->are_handshake;
+ok(1 == grep(/none/, @opts), 'handshake none in list');
+ok(0 == grep(/moo/, @opts), 'handshake moo not in list');
 
-is_ok($in = $ob->is_handshake);			# 72
-is_ok(1 == grep(/^$in$/, @opts));		# 73
+ok($in = $ob->is_handshake, 'read is_handshake');
+ok(1 == grep(/^$in$/, @opts), "confirm $in in list");
 
-is_bad(scalar $ob->is_handshake("moo"));	# 74
-is_ok($in = $ob->is_handshake("rts"));		# 75
+is_bad(scalar $ob->is_handshake("moo"), 'cannot set moo handshake');
+is($ob->is_handshake("rts"), 'rts', 'can set rts handshake');
     # leaves "rts" pending for status
-
 
 ## 76 - 81: Buffer Size
 
 ($in, $out) = $ob->buffer_max(512);
-is_bad(defined $in);				# 76
+is_bad(defined $in, 'invalid buffer_max command');
 ($in, $out) = $ob->buffer_max;
-is_ok(defined $in);				# 77
+ok(defined $in, 'read in buffer_max');
+ok(defined $out, 'read out buffer_max');
 
 if (($in > 0) and ($in < 4096))		{ $in2 = $in; } 
 else					{ $in2 = 4096; }
@@ -332,264 +276,272 @@ else					{ $in2 = 4096; }
 if (($out > 0) and ($out < 4096))	{ $err = $out; } 
 else					{ $err = 4096; }
 
-is_ok(scalar $ob->buffers($in2, $err));		# 78
+ok(scalar $ob->buffers($in2, $err), 'valid set buffer_max');
 
 @opts = $ob->buffers(4096, 4096, 4096);
-is_bad(defined $opts[0]);			# 79
+is_bad(defined $opts[0], 'invalid buffers command');
 ($in, $out)= $ob->buffers;
-is_ok($in2 == $in);				# 80
-is_ok($out == $err);				# 81
+ok($in2 == $in, 'check buffers in setting');
+ok($out == $err, 'check buffers out setting');
 
-## 82: Alias
+## 82: Alias and Device
 
-is_ok("AltPort" eq $ob->alias("AltPort"));	# 82
-
+is($ob->alias, $file, 'original alias from new');
+is($ob->alias("TestPort"), 'TestPort', 'set alias');
+if ($file =~ /^COM\d+$/io) {
+	is($ob->device, '\\\\.\\'.$file, 'device from new');
+} else {
+	is($ob->device, $file, 'original device from new');
+}
 
 ## 83 - 88: Read Timeouts
 
 @opts = $ob->read_interval;
-is_ok(test_long_list(@opts));			# 83
-is_ok(0xffffffff == $ob->read_interval(0xffffffff));	# 84
+ok(test_long_list(@opts), 'read_interval range');
+is($ob->read_interval(0xffffffff), 0xffffffff, 'set read_interval');
 
 @opts = $ob->read_const_time;
-is_ok(test_long_list(@opts));			# 85
-is_zero($ob->read_const_time(0));		# 86
-
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
+ok(test_long_list(@opts), 'read_const_time range');
+is($ob->read_const_time(0), 0, 'set read_const_time');
 
 @opts = $ob->read_char_time;
-is_ok(test_long_list(@opts));			# 87
-is_zero($ob->read_char_time(0));		# 88
-
+ok(test_long_list(@opts), 'read_char_time range');
+is($ob->read_char_time(0), 0, 'set read_char_time');
 
 ## 89 - 92: Write Timeouts
 
 @opts = $ob->write_const_time;
-is_ok(test_long_list(@opts));			# 89
-is_ok(200 == $ob->write_const_time(200));	# 90
+ok(test_long_list(@opts), 'write_const_time range');
+is($ob->write_const_time(200), 200, 'set write_const_time');
 
 @opts = $ob->write_char_time;
-is_ok(test_long_list(@opts));			# 91
-is_ok(10 == $ob->write_char_time(10));		# 92
+ok(test_long_list(@opts), 'write_char_time range');
+is($ob->write_char_time(10), 10, 'set write_char_time');
 
 ## 93 - 96: Other Parameters (Defaults)
 
-is_ok(1 == $ob->binary(1));			# 93
+is($ob->binary(1), 1, 'binary');
 
-is_zero(scalar $ob->parity_enable(0));		# 94
+is($ob->parity_enable(0), 0, 'parity_enable');
 
 @opts = $ob->xon_limit;
-is_ok(test_short_list(@opts));			# 95
+ok(test_short_list(@opts), 'xon_limit range');
 
 @opts = $ob->xoff_limit;
-is_ok(test_short_list(@opts));			# 96
+ok(test_short_list(@opts), 'xoff_limit range');
 
 ## 97 - 99: Finish Initialize
 
-is_ok(scalar $ob->write_settings);		# 97
+is($ob->write_settings, 1, 'write_settings');
 
-is_ok(100 == $ob->xon_limit(100));		# 98
-is_ok(200 == $ob->xoff_limit(200));		# 99
+is($ob->xon_limit(100), 100, 'xon_limit');
+is($ob->xoff_limit(200), 200, 'xoff_limit');
 
-
-## 100 - 127: Constants from Package
+## 100 - 130: Constants from Package
 
 no strict 'subs';
-is_ok(1 == BM_fCtsHold);			# 100
-is_ok(2 == BM_fDsrHold);			# 101
-is_ok(4 == BM_fRlsdHold);			# 102
-is_ok(8 == BM_fXoffHold);			# 103
-is_ok(0x10 == BM_fXoffSent);			# 104
-is_ok(0x20 == BM_fEof);				# 105
-is_ok(0x40 == BM_fTxim);			# 106
-is_ok(0x7f == BM_AllBits);			# 107
+is(BM_fCtsHold, 1, 'BM_fCtsHold');
+is(BM_fDsrHold, 2, 'BM_fDsrHold');
+is(BM_fRlsdHold, 4, 'BM_fRlsdHold');
+is(BM_fXoffHold, 8, 'BM_fXoffHold');
+is(BM_fXoffSent, 0x10, 'BM_fXoffSent');
+is(BM_fEof, 0x20, 'BM_fEof');
+is(BM_fTxim, 0x40, 'BM_fTxim');
+is(BM_AllBits, 0x7f, 'BM_AllBits');
 
-is_ok(0x10 == MS_CTS_ON);			# 108
+is(MS_CTS_ON, 0x10, 'MS_CTS_ON');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
+is(MS_DSR_ON, 0x20, 'MS_DSR_ON');
+is(MS_RING_ON, 0x40, 'MS_RING_ON');
+is(MS_RLSD_ON, 0x80, 'MS_RLSD_ON');
 
-is_ok(0x20 == MS_DSR_ON);			# 109
-is_ok(0x40 == MS_RING_ON);			# 110
-is_ok(0x80 == MS_RLSD_ON);			# 111
+is(CE_RXOVER, 0x1, 'CE_RXOVER');
+is(CE_OVERRUN, 0x2, 'CE_OVERRUN');
+is(CE_RXPARITY, 0x4, 'CE_RXPARITY');
+is(CE_FRAME, 0x8, 'CE_FRAME');
+is(CE_BREAK, 0x10, 'CE_BREAK');
+is(CE_TXFULL, 0x100, 'CE_TXFULL');
+is(CE_MODE, 0x8000, 'CE_MODE');
 
-is_ok(0x1 == CE_RXOVER);			# 112
-is_ok(0x2 == CE_OVERRUN);			# 113
-is_ok(0x4 == CE_RXPARITY);			# 114
-is_ok(0x8 == CE_FRAME);				# 115
-is_ok(0x10 == CE_BREAK);			# 116
-is_ok(0x100 == CE_TXFULL);			# 117
-is_ok(0x8000 == CE_MODE);			# 118
+is(ST_BLOCK, 0x0, 'ST_BLOCK');
+is(ST_INPUT, 0x1, 'ST_INPUT');
+is(ST_OUTPUT, 0x2, 'ST_OUTPUT');
+is(ST_ERROR, 0x3, 'ST_ERROR');
 
-is_ok(0x0 == ST_BLOCK);				# 119
-is_ok(0x1 == ST_INPUT);				# 120
-is_ok(0x2 == ST_OUTPUT);			# 121
-is_ok(0x3 == ST_ERROR);				# 122
-
-is_ok(0xffffffff == LONGsize);			# 123
-is_ok(0xffff == SHORTsize);			# 124
-is_ok(0x1 == nocarp);				# 125
-is_ok(0x0 == yes_true("F"));			# 126
-is_ok(0x1 == yes_true("T"));			# 127
+is(LONGsize, 0xffffffff, 'LONGsize');
+is(SHORTsize, 0xffff, 'SHORTsize');
+is($ob->nocarp, 0x1, 'nocarp');
+is(yes_true("F"), 0x0, 'yes_true("F")');
+is(yes_true("T"), 0x1, 'yes_true("T")');
 use strict 'subs';
 
-## 128 - 133: Status
+## 118 - 123: Status
 
+is($ob->purge_all, 1, 'purge_all');
 @opts = $ob->status;
-is_ok(defined @opts);				# 128
+is(scalar @opts, 4, 'status');
 
 # for an unconnected port, should be $in=0, $out=0, $blk=1 (no CTS), $err=0
+# USB and virtual ports can be different, but stil 4 elements
 
 ($blk, $in, $out, $err)=@opts;
-is_ok(defined $blk);				# 129
-is_zero($in);					# 130
+# warn "WCB status: $blk, $in, $out, $err\n";
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
+ok(defined $blk, 'blocking bits');
+is($in, 0, 'input bytes');
+is($out, 0, 'output bytes');
+is($err, 0, 'error bytes');
 
-is_zero($out);					# 131
-is_ok($blk == $ob->BM_fCtsHold);		# 132
-is_zero($err);					# 133
+## 124 - 130: No Handshake, Polled Write
 
-## 134 - 140: No Handshake, Polled Write
-
-is_ok("none" eq $ob->handshake("none"));	# 134
+is($ob->handshake("none"), 'none', 'set handshake none');
 
 $tick=$ob->get_tick_count;
-$pass=$ob->write($line);
+is($ob->write($line), 180, 'write 180 characters');
 $tock=$ob->get_tick_count;
 
-is_ok($pass == 180);				# 135
 $err=$tock - $tick;
-is_bad (($err < 160) or ($err > 210));		# 136
+if ($err < 120) {
+	$BUFFEROUT = 1;	# USB and virtual ports can't test output timing
+}
+if ($BUFFEROUT) {
+	is_bad ($err > 210, 'skip write timing');
+} else {
+	is_bad (($err < 160) or ($err > 210), 'write timing');
+}
 print "<185> elapsed time=$err\n";
 
-($blk, $in, $out, $err)=$ob->status;
-is_zero($blk);					# 137
-if ($blk) { printf "status: blk=%lx\n", $blk; }
-is_zero($in);					# 138
-is_zero($out);					# 139
-is_zero($err);					# 140
+ok(defined $ob->reset_error, 'reset_error');
+	
+SKIP: {
+    skip "Can't rely on status or no input", 14 if $BUFFEROUT;
+    ($blk, $in, $out, $err)=$ob->status;
+    is($blk, 0, 'blocking bits');
+    is($in, 0, 'input bytes');
+    is($out, 0, 'output bytes');
+    is($err, 0, 'error bytes');
 
-## 141 - 146: Block by DSR without Output
+    ## 141 - 146: Block by DSR without Output
 
-is_ok(scalar $ob->purge_tx);			# 141
-is_ok("dtr" eq $ob->handshake("dtr"));		# 142
+    is($ob->handshake("dtr"), 'dtr', 'set handshake dtr');
 
-($blk, $in, $out, $err)=$ob->status;
-is_ok($blk == $ob->BM_fDsrHold);		# 143
-is_zero($in);					# 144
-is_zero($out);					# 145
-is_zero($err);					# 146
+    ($blk, $in, $out, $err)=$ob->status;
+    is($blk, BM_fDsrHold, 'DSR blocking bits');
+    is($in, 0, 'input bytes');
+    is($out, 0, 'output bytes');
+    is($err, 0, 'error bytes');
 
-## 147 - 151: Unsent XOFF without Output
+    ## 137 - 141: Unsent XOFF without Output
 
-is_ok("xoff" eq $ob->handshake("xoff"));	# 147
+    is($ob->handshake("xoff"), 'xoff', 'set handshake xoff');
 
-($blk, $in, $out, $err)=$ob->status;
-is_zero($blk);					# 148
-if ($blk) { printf "status: blk=%lx\n", $blk; }
-is_zero($in);					# 149
-is_zero($out);					# 150
-is_zero($err);					# 151
-
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
+    ($blk, $in, $out, $err)=$ob->status;
+    is($blk, 0, 'blocking bits');
+    is($in, 0, 'input bytes');
+    is($out, 0, 'output bytes');
+    is($err, 0, 'error bytes');
 }
 
-## 152 - 160: Block by XOFF without Output
+## 142 - 150: Block by XOFF without Output
 
-is_ok(scalar $ob->xoff_active);			# 152
+ok($ob->xoff_active, 'xoff active');
 
-is_ok(scalar $ob->xmit_imm_char(0x33));		# 153
+ok(scalar $ob->xmit_imm_char(0x33), 'transmit xoff');
 
-$in2=($ob->BM_fXoffHold | $ob->BM_fTxim);
+SKIP: {
+    skip "Can't rely on status or no input", 4 if $BUFFEROUT;
+    $in2=(BM_fXoffHold | BM_fTxim);
+    ($blk, $in, $out, $err)=$ob->status;
+    ok($blk & $in2, 'XoffHold or Txim');
+    is($in, 0, 'input bytes');
+    is($out, 0, 'output bytes');
+    is($err, 0, 'error bytes');
+}
+
+ok($ob->xon_active, 'xon_active');
 ($blk, $in, $out, $err)=$ob->status;
-is_ok($blk & $in2);				# 154
-is_zero($in);					# 155
-is_zero($out);					# 156
-is_zero($err);					# 157
 
-is_ok(scalar $ob->xon_active);			# 158
-($blk, $in, $out, $err)=$ob->status;
-is_zero($blk);					# 159
-if ($blk) { printf "status: blk=%lx\n", $blk; }
-is_zero($err);					# 160
+SKIP: {
+    skip "Can't rely on status or no input", 3 if $BUFFEROUT;
+    is($blk, 0, 'blocking bits');
+    is($in, 0, 'input bytes');
+    is($err, 0, 'error bytes');
+}
 
-## 161 - 162: No Handshake
+## 151 - 152: No Handshake
 
-is_ok("none" eq $ob->handshake("none"));	# 161
-is_ok(scalar $ob->purge_all);			# 162
+is($ob->handshake("none"), 'none', 'set handshake none');
+ok(scalar $ob->purge_all, 'purge_all');
+ok(defined $ob->reset_error, 'reset_error');
 
-## 163 - 168: Optional Messages
+## 153 - 158: Optional Messages
 
 @opts = $ob->user_msg;
-is_ok(test_bin_list(@opts));			# 163
-is_zero(scalar $ob->user_msg);			# 164
-is_ok(1 == $ob->user_msg(1));			# 165
+ok(test_bin_list(@opts), 'user_msg_array');
+is(scalar $ob->user_msg, 0, 'user_msg init OFF');
+is(scalar $ob->user_msg(1), 1, 'user_msg ON');
 
 @opts = $ob->error_msg;
-is_ok(test_bin_list(@opts));			# 166
-is_zero(scalar $ob->error_msg);			# 167
-is_ok(1 == $ob->error_msg(1));			# 168
+ok(test_bin_list(@opts), 'error_msg_array');
+is(scalar $ob->error_msg, 0, 'error_msg init OFF');
+is($ob->error_msg(1), 1, 'error_msg ON');
 
-## 169 - 173: Save and Check Configuration
+## 96 - 164: Save and Check Configuration
 
-is_ok(scalar $ob->save($cfgfile));		# 169
+ok(scalar $ob->save($cfgfile), 'save');
 
-is_ok(9600 == $ob->baudrate);			# 170
-is_ok("none" eq $ob->parity);			# 171
-is_ok(8 == $ob->databits);			# 172
-is_ok(1 == $ob->stopbits);			# 173
+is($ob->baudrate, 9600, 'baudrate');
+is($ob->parity, 'none', 'parity');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
+is($ob->databits, 8, 'databits');
+is($ob->stopbits, 1, 'stopbits');
 
 ## 174 - 187: Other Misc. Tests
 
-is_ok(scalar $ob->can_rlsd_config);		# 174
-
-is_ok($ob->suspend_tx);				# 175
-is_ok(scalar $ob->dtr_active(1));		# 176
-is_ok(scalar $ob->rts_active(1));		# 177
-is_ok(scalar $ob->break_active(1));		# 178
-is_zero($ob->modemlines);			# 179
+ok(scalar $ob->can_rlsd_config, 'can_rlsd_config');
+ok($ob->suspend_tx, 'suspend_tx');
+is(scalar $ob->dtr_active(1), 1, 'dtr_active ON');
+is(scalar $ob->rts_active(1), 1, 'rts_active ON');
+is(scalar $ob->break_active(1), 1, 'break_active ON');
+if ($BUFFEROUT) {
+	ok(defined $ob->modemlines, 'modemlines');
+} else {
+	is($ob->modemlines, 0, 'modemlines');
+}
 
 sleep 1;
 
-is_ok($ob->resume_tx);				# 180
-is_ok(scalar $ob->dtr_active(0));		# 181
-is_ok(scalar $ob->rts_active(0));		# 182
-is_ok(scalar $ob->break_active(0));		# 183
-is_zero($ob->is_modemlines);			# 184
-is_ok($ob->debug_comm(1));			# 185
-is_zero($ob->debug_comm(0));			# 186
+ok($ob->resume_tx, 'resume_tx');
+is(scalar $ob->dtr_active(0), 1, 'dtr_active OFF');
+is(scalar $ob->rts_active(0), 1, 'rts_active OFF');
+is(scalar $ob->break_active(0), 1, 'break_active OFF');
+if ($BUFFEROUT) {
+	ok(defined $ob->modemlines, 'modemlines');
+} else {
+	is($ob->modemlines, 0, 'modemlines');
+}
+is($ob->debug_comm(1), 1, 'debug_comm ON');
+is($ob->debug_comm(0), 0, 'debug_comm OFF');
 
-is_ok(1 == $ob->close);				# 187
+is($ob->close, 1, 'close');
 undef $ob;
 
-## 188 - 190: Check File Headers
+## 102 - 105: Check File Headers
 
-is_ok(open CF, "$cfgfile");			# 188
+ok(open(CF, "$cfgfile"), 'open config file');
 my ($signature, $name, @values) = <CF>;
 close CF;
 
-is_ok(1 == grep(/SerialPort_Configuration_File/, $signature));	# 189
+ok(1 == grep(/SerialPort_Configuration_File/, $signature), 'signature');
 
 chomp $name;
-is_ok($name eq $file);				# 190
+if ($file =~ /^COM\d+$/io) {
+	is($name, '\\\\.\\'.$file, 'config file device');
+} else {
+	is($name, $file, 'config file device');
+}
 
-## 191 - 192: Check that Values listed exactly once
+## 106 - 107: Check that Values listed exactly once
 
 $fault = 0;
 foreach $e (@values) {
@@ -598,224 +550,176 @@ foreach $e (@values) {
     $fault++ if ($out eq "");
     $required_param{$in}++;
     }
-is_zero($fault);				# 191
+is($fault, 0, 'no duplicate values exist');
 
 $fault = 0;
 foreach $e (@necessary_param) {
     $fault++ unless ($required_param{$e} ==1);
     }
-is_zero($fault);				# 192
+is($fault, 0, 'all required keys appear once');
 
-## 193 - 200: Reopen as (mostly 5.003 Compatible) Tie using File 
+## 93 - 125: Reopen as Tie
 
-    # constructor = TIEHANDLE method		# 193
-unless (is_ok ($ob = tie(*PORT,'AltPort', $cfgfile))) {
-    printf "could not reopen port from $cfgfile\n";
-    exit 1;
-    # next test would die at runtime without $ob
-}
+    # constructor = TIEHANDLE method
+
+ok ($ob = tie(*PORT,'Win32::SerialPort', $cfgfile), 'tie');
+die unless ($ob);    # next tests would die at runtime
+
+SKIP: {
+    skip "Tied timing and output separators", 32 if $BUFFEROUT;
 
     # tie to PRINT method
-$tick=$ob->get_tick_count;
-$pass=print PORT $line;
-$tock=$ob->get_tick_count;
-
-is_ok($pass == 1);				# 194
-
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
-
-$err=$tock - $tick;
-is_bad (($err < 160) or ($err > 210));		# 195
-print "<185> elapsed time=$err\n";
+    $tick=$ob->get_tick_count;
+    $pass=print PORT $line;
+    $tock=$ob->get_tick_count;
+    is($pass, 1, 'PRINT method');
+    $err=$tock - $tick;
+    is_bad (($err < 160) or ($err > 245), 'write timing');
+    print "<185> elapsed time=$err\n";
 
     # tie to PRINTF method
-$tick=$ob->get_tick_count;
-if ( $] < 5.004 ) {
-    $out=sprintf "123456789_%s_987654321", $line;
-    $pass=print PORT $out;
-}
-else {
+    $tick=$ob->get_tick_count;
     $pass=printf PORT "123456789_%s_987654321", $line;
-}
-$tock=$ob->get_tick_count;
-
-is_ok($pass == 1);				# 196
-
-$err=$tock - $tick;
-is_bad (($err < 180) or ($err > 235));		# 197
-print "<205> elapsed time=$err\n";
+    $tock=$ob->get_tick_count;
+    is($pass, 1, 'PRINTF method');
+    $err=$tock - $tick;
+    is_bad (($err < 180) or ($err > 235));
+    print "<205> elapsed time=$err\n";
 
     # tie to READLINE method
-is_ok (500 == $ob->read_const_time(500));	# 198
-$tick=$ob->get_tick_count;
-$fail = <PORT>;
-$tock=$ob->get_tick_count;
+    is ($ob->read_const_time(500), 500, 'READLINE timeout');
+    $tick=$ob->get_tick_count;
+    $fail = <PORT>;
+    $tock=$ob->get_tick_count;
+    is_bad(defined $fail);
+    $err=$tock - $tick;
+    is_bad (($err < 480) or ($err > 540));
+    print "<500> elapsed time=$err\n";
+#6
+    ## 201 - 215: Record and Field Separators
 
-is_bad(defined $fail);				# 199
-$err=$tock - $tick;
-is_bad (($err < 480) or ($err > 540));		# 200
-print "<500> elapsed time=$err\n";
+    my $r = "I am the very model of an output record separator";	## =49
+    #        1234567890123456789012345678901234567890123456789
+    my $f = "The fields are alive with the sound of music";		## =44
+    my $ff = "$f, with fields they have sung for a thousand years";	## =93
+    my $rr = "$r, not animal or vegetable or mineral or any other";	## =98
 
-## 201 - 215: Record and Field Separators
-
-my $r = "I am the very model of an output record separator";	## =49
-#        1234567890123456789012345678901234567890123456789
-my $f = "The fields are alive with the sound of music";		## =44
-my $ff = "$f, with fields they have sung for a thousand years";	## =93
-my $rr = "$r, not animal or vegetable or mineral or any other";	## =98
-
-is_ok($ob->output_record_separator eq "");	# 201
-is_ok($ob->output_field_separator eq "");	# 202
-$, = "";
-$\ = "";
+    is($ob->output_record_separator, "", 'output_record_separator');
+    is($ob->output_field_separator, "", 'output_field_separator');
+    $, = "";
+    $\ = "";
 
     # tie to PRINT method
-$tick=$ob->get_tick_count;
-$pass=print PORT $s, $s, $s;
-$tock=$ob->get_tick_count;
+    $tick=$ob->get_tick_count;
+    $pass=print PORT $s, $s, $s;
+    $tock=$ob->get_tick_count;
+    is($pass, 1, 'PRINT method, multiple strings');
+    $err=$tock - $tick;
+    is_bad (($err < 160) or ($err > 210), 'write timing');
+    print "<185> elapsed time=$err\n";
 
-is_ok($pass == 1);				# 203
+    is($ob->output_field_separator($f), "", 'output_field_separator');
+    $tick=$ob->get_tick_count;
+    $pass=print PORT $s, $s, $s;
+    $tock=$ob->get_tick_count;
+    is($pass, 1, 'PRINT method, alt field separator');
+    $err=$tock - $tick;
+    is_bad (($err < 260) or ($err > 310), 'write timing');
+    print "<275> elapsed time=$err\n";
 
-$err=$tock - $tick;
-is_bad (($err < 160) or ($err > 210));		# 204
-print "<185> elapsed time=$err\n";
+    is($ob->output_record_separator($r), "", 'output_record_separator');
+    $tick=$ob->get_tick_count;
+    $pass=print PORT $s, $s, $s;
+    $tock=$ob->get_tick_count;
+    is($pass, 1, 'PRINT method, alt record separator');
+    $err=$tock - $tick;
+    is_bad (($err < 310) or ($err > 360), 'write timing');
+    print "<325> elapsed time=$err\n";
+#16
+    is($ob->output_record_separator, $r, 'alt record separator');
+    is($ob->output_field_separator, $f, 'alt field separator');
+    $, = $ff;
+    $\ = $rr;
+    $tick=$ob->get_tick_count;
+    $pass=print PORT $s, $s, $s;
+    $tock=$ob->get_tick_count;
 
-is_ok($ob->output_field_separator($f) eq "");	# 205
-$tick=$ob->get_tick_count;
-$pass=print PORT $s, $s, $s;
-$tock=$ob->get_tick_count;
+    $, = "";
+    $\ = "";
+    is($pass, 1, 'PRINT method, alt $, and $\\');
+    $err=$tock - $tick;
+    is_bad (($err < 310) or ($err > 360), 'write timing');
+    print "<325> elapsed time=$err\n";
 
-is_ok($pass == 1);				# 206
+    $, = $ff;
+    $\ = $rr;
+    is($ob->output_field_separator(""), $f, 'alt field separator');
+    $tick=$ob->get_tick_count;
+    $pass=print PORT $s, $s, $s;
+    $tock=$ob->get_tick_count;
 
-$err=$tock - $tick;
-is_bad (($err < 260) or ($err > 310));		# 207
-print "<275> elapsed time=$err\n";
+    $, = "";
+    $\ = "";
+    is($pass, 1, 'PRINT method, normal $, and $\\');
+    $err=$tock - $tick;
+    is_bad (($err < 410) or ($err > 460), 'write timing');
+    print "<425> elapsed time=$err\n";
 
-is_ok($ob->output_record_separator($r) eq "");	# 208
-$tick=$ob->get_tick_count;
-$pass=print PORT $s, $s, $s;
-$tock=$ob->get_tick_count;
+    $, = $ff;
+    $\ = $rr;
+    is($ob->output_record_separator(""), $r, 'output_record_separator');
+    $tick=$ob->get_tick_count;
+    $pass=print PORT $s, $s, $s;
+    $tock=$ob->get_tick_count;
 
-is_ok($pass == 1);				# 209
-
-$err=$tock - $tick;
-is_bad (($err < 310) or ($err > 360));		# 210
-print "<325> elapsed time=$err\n";
-
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
-
-is_ok($ob->output_record_separator eq $r);	# 211
-is_ok($ob->output_field_separator eq $f);	# 212
-$, = $ff;
-$\ = $rr;
-
-$tick=$ob->get_tick_count;
-$pass=print PORT $s, $s, $s;
-$tock=$ob->get_tick_count;
-
-$, = "";
-$\ = "";
-is_ok($pass == 1);				# 213
-
-$err=$tock - $tick;
-is_bad (($err < 310) or ($err > 360));		# 214
-print "<325> elapsed time=$err\n";
-
-$, = $ff;
-$\ = $rr;
-is_ok($ob->output_field_separator("") eq $f);	# 215
-$tick=$ob->get_tick_count;
-$pass=print PORT $s, $s, $s;
-$tock=$ob->get_tick_count;
-
-$, = "";
-$\ = "";
-is_ok($pass == 1);				# 216
-
-$err=$tock - $tick;
-is_bad (($err < 410) or ($err > 460));		# 217
-print "<425> elapsed time=$err\n";
-
-$, = $ff;
-$\ = $rr;
-is_ok($ob->output_record_separator("") eq $r);	# 218
-$tick=$ob->get_tick_count;
-$pass=print PORT $s, $s, $s;
-$tock=$ob->get_tick_count;
-
-$, = "";
-$\ = "";
-is_ok($pass == 1);				# 219
-
-$err=$tock - $tick;
-is_bad (($err < 460) or ($err > 510));		# 220
-print "<475> elapsed time=$err\n";
-
-
-is_ok($ob->output_field_separator($f) eq "");	# 221
-is_ok($ob->output_record_separator($r) eq "");	# 222
+    $, = "";
+    $\ = "";
+    is($pass, 1, 'PRINT method, normal $, and $\\');
+    $err=$tock - $tick;
+    is_bad (($err < 460) or ($err > 510), 'write timing');
+    print "<475> elapsed time=$err\n";
+#26
+    is($ob->output_field_separator($f), "", 'output_field_separator');
+    is($ob->output_record_separator($r), "", 'output_record_separator');
 
     # tie to PRINTF method
-$tick=$ob->get_tick_count;
-if ( $] < 5.004 ) {
-    $out=sprintf "123456789_%s_987654321", $line;
-    $pass=print PORT $out;
-}
-else {
+    $tick=$ob->get_tick_count;
     $pass=printf PORT "123456789_%s_987654321", $line;
-}
-$tock=$ob->get_tick_count;
+    $tock=$ob->get_tick_count;
+    is($pass, 1, 'PRINT method');
+    $err=$tock - $tick;
+    is_bad (($err < 240) or ($err > 295), 'write timing');
+    print "<260> elapsed time=$err\n";
 
-is_ok($pass == 1);				# 223
-
-$err=$tock - $tick;
-is_bad (($err < 240) or ($err > 295));		# 224
-print "<260> elapsed time=$err\n";
-
-is_ok($ob->output_field_separator("") eq $f);	# 225
-is_ok($ob->output_record_separator("") eq $r);	# 226
-
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
+    is($ob->output_field_separator(''), $f, 'output_field_separator');
+    is($ob->output_record_separator(''), $r, 'output_record_separator');
 }
 
 ## 227 - 241: Port in Use (new + quiet)
 
 my $ob2;
-is_bad ($ob2 = Win32::SerialPort->new ($file));		# 227
-is_bad (defined $ob2);					# 228
-is_zero ($ob2 = Win32::SerialPort->new ($file, 1));	# 229
-is_bad ($ob2 = Win32::SerialPort->new ($file, 0));	# 230
-is_bad (defined $ob2);					# 231
+is_bad ($ob2 = Win32::SerialPort->new ($file), "port $file already open");
+is_bad (defined $ob2, 'returns undef');
+is ($ob2 = Win32::SerialPort->new ($file, 1), 0, 'quiet returns zero');
+is_bad ($ob2 = Win32::SerialPort->new ($file, 0), 'quiet off');
+is_bad (defined $ob2, 'returns undef');
 
-is_bad ($ob2 = Win32API::CommPort->new ($file));	# 232
-is_bad (defined $ob2);					# 233
-is_zero ($ob2 = Win32API::CommPort->new ($file, 1));	# 234
-is_bad ($ob2 = Win32API::CommPort->new ($file, 0));	# 235
-is_bad (defined $ob2);					# 236
+is_bad ($ob2 = Win32API::CommPort->new ($file), "CommPort uses same $file");
+is_bad (defined $ob2, 'returns undef');
+is ($ob2 = Win32API::CommPort->new ($file, 1), 0, 'quiet is one');
+is_bad ($ob2 = Win32API::CommPort->new ($file, 0), 'quiet is zero');
+is_bad (defined $ob2, 'but still undef');
 
-is_bad ($ob2 = AltPort->new ($file));		# 237
-is_bad (defined $ob2);				# 238
+is_bad ($ob2 = AltPort->new ($file), "repeat for inherited $file");
+is_bad (defined $ob2, 'undef');
 
-is_zero ($ob2 = AltPort->new ($file, 1));	# 239
-is_bad ($ob2 = AltPort->new ($file, 0));	# 240
-is_bad (defined $ob2);				# 241
+is ($ob2 = AltPort->new ($file, 1), 0, 'inherited with quiet');
+is_bad ($ob2 = AltPort->new ($file, 0), 'no quiet');
+is_bad (defined $ob2, 'undef again');
 
     # destructor = CLOSE method
-if ( $] < 5.005 ) {
-    is_ok($ob->close);				# 242
-}
-else {
-    is_ok(close PORT);				# 242
-}
-is_ok(4096 == internal_buffer);			# 243
+ok(close PORT, 'close');
+is(internal_buffer, 4096, 'internal_buffer with no object');
 
     # destructor = DESTROY method
 undef $ob;					# Don't forget this one!!
@@ -824,5 +728,5 @@ untie *PORT;
 no strict 'vars';	# turn off strict in order to check
 			# "RAW" symbols not exported by default
 
-is_bad(defined $CloseHandle);			# 244
+is_bad(defined $CloseHandle, 'confirm RAW symbols not exported');
 $CloseHandle = 1;	# for "-w"

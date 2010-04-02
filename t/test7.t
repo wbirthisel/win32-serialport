@@ -1,57 +1,28 @@
-#! perl -w
-
 use lib '.','./t','./lib','../lib';
 # can run from here or distribution base
-require 5.004;
 
-# Before installation is performed this script should be runnable with
-# `perl test7.t time' which pauses `time' seconds (0..5) between pages
+use Test::More;
+### use Data::Dumper;
+eval "use DefaultPort;";
+if ($@) {
+    plan skip_all => 'No serial port selected for use with testing';
+}
+else {
+    plan tests => 90;
+}
+cmp_ok($Win32::SerialPort::VERSION, '>=', 0.20, 'VERSION check');
 
-######################### We start with some black magic to print on failure.
+# USB and virtual ports can't test output timing, first fail will set this
+my $BUFFEROUT=0;
 
-# Change 1..1 below to 1..last_test_to_print .
-# (It may become useful if the test is moved to ./t subdirectory.)
-
-BEGIN { $| = 1; print "1..88\n"; }
-END {print "not ok 1\n" unless $loaded;}
-use Win32::SerialPort 0.14;
-use Win32;
-require "DefaultPort.pm";
-$loaded = 1;
-print "ok 1\n";
-
-######################### End of black magic.
-
-# Insert your test code below (better if it prints "ok 13"
-# (correspondingly "not ok 13") depending on the success of chunk 13
-# of the test code):
-
-# assume a "vanilla" port on "COM1"
+use Win32::SerialPort qw( :STAT 0.20 );
 
 use strict;
-
-my $tc = 2;		# next test number
-
-sub is_ok {
-    my $result = shift;
-    printf (($result ? "" : "not ")."ok %d\n",$tc++);
-    return $result;
-}
-
-sub is_zero {
-    my $result = shift;
-    if (defined $result) {
-        return is_ok ($result == 0);
-    }
-    else {
-        printf ("not ok %d\n",$tc++);
-    }
-}
+use warnings;
 
 sub is_bad {
-    my $result = shift;
-    printf (($result ? "not " : "")."ok %d\n",$tc++);
-    return (not $result);
+    local $Test::Builder::Level = $Test::Builder::Level + 1;
+    return ok(!shift, shift);
 }
 
 my $file = "COM1";
@@ -60,14 +31,6 @@ if ($SerialJunk::Makefile_Test_Port) {
 }
 if (exists $ENV{Makefile_Test_Port}) {
     $file = $ENV{Makefile_Test_Port};
-}
-
-my $naptime = 0;	# pause between output pages
-if (@ARGV) {
-    $naptime = shift @ARGV;
-    unless ($naptime =~ /^[0-5]$/) {
-	die "Usage: perl test?.t [ page_delay (0..5) ] [ COMx ]";
-    }
 }
 if (@ARGV) {
     $file = shift @ARGV;
@@ -90,250 +53,245 @@ my $err;
 my $blk;
 my $tick;
 my $tock;
+my $in;
+my $out;
+my $instead;
 my @necessary_param = Win32::SerialPort->set_test_mode_active(1);
 
 ## 2: Open as Tie using File 
 
-    # constructor = TIEHANDLE method		# 2
-unless (is_ok ($ob = tie(*PORT,'Win32::SerialPort', $cfgfile))) {
-    printf "could not reopen port from $cfgfile\n";
-    exit 1;
-    # next test would die at runtime without $ob
-}
+    # constructor = TIEHANDLE method
+ok ($ob = tie(*PORT,'Win32::SerialPort', $cfgfile), "tie $cfgfile");
+die unless ($ob);    # next tests would die at runtime
 
-### 3 - 20: Defaults for stty and lookfor
+### 27 - 65: Defaults for streamline and lookfor
 
 @opts = $ob->are_match("\n");
-is_ok ($#opts == 0);				# 3
-is_ok ($opts[0] eq "\n");			# 4
-is_ok ($ob->lookclear == 1);			# 5
-is_ok ($ob->is_prompt("") eq "");		# 6
-is_ok ($ob->lookfor eq "");			# 7
-is_ok ($ob->streamline eq "");			# 8
+is (scalar @opts, 1, 'are match');
+is ($opts[0], "\n", 'new line as default');
+is ($ob->lookclear, 1, 'lookclear');
+is ($ob->is_prompt(""), "", 'is_prompt');
+is ($ob->lookfor, "", 'lookfor');
+is ($ob->streamline, "", 'streamline');
 
-($pass, $fail, $patt, $err) = $ob->lastlook;
-is_ok ($pass eq "");				# 9
-is_ok ($fail eq "");				# 10
-is_ok ($patt eq "");				# 11
-is_ok ($err eq "");				# 12
-is_ok ($ob->matchclear eq "");			# 13
+($in, $out, $patt, $instead) = $ob->lastlook;
+is ($in, "", 'input that MATCHED');
+is ($out, "", 'input AFTER match');
+is ($patt, "", 'PATTERN that matched');
+is ($instead, "", 'input INSTEAD of matching');
+is ($ob->matchclear, "", 'MATCH was first');
 
-is_ok("none" eq $ob->handshake("none"));	# 14
-is_ok(0 == $ob->stty_onlcr(0));			# 15
+is($ob->handshake("none"), "none", 'handshake("none")');
+is($ob->stty_onlcr(0), 0, 'stty_onlcr(0)');
 
-is_ok(0 == $ob->read_char_time(0));		# 16
-is_ok(1000 == $ob->read_const_time(1000));	# 17
-is_ok(0 == $ob->read_interval(0));		# 18
-is_ok(0 == $ob->write_char_time(0));		# 19
-is_ok(2000 == $ob->write_const_time(2000));	# 20
+is($ob->read_char_time(0), 0, 'read_char_time(0)');
+is($ob->read_const_time(1000), 1000, 'read_const_time(1000)');
+is($ob->read_interval(0), 0, 'read_interval(0)');
+is($ob->write_char_time(0), 0, 'write_char_time(0)');
+is($ob->write_const_time(2000), 2000, 'write_const_time(2000)');
 
     # tie to PRINT method
 $tick=$ob->get_tick_count;
 $pass=print PORT $line;
-is_zero($^E);					# 21
+is(0+$^E, 0, 'confirm no error');
 $tock=$ob->get_tick_count;
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
-
-is_ok($pass == 1);				# 22
+is($pass, 1, 'PRINT method');
 $err=$tock - $tick;
-is_bad (($err < 160) or ($err > 210));		# 23
+if ($err < 160) {
+	$BUFFEROUT = 1;	# USB and virtual ports can't test output timing
+}
+if ($BUFFEROUT) {
+	is_bad ($err > 210, 'skip PRINT timing');
+} else {
+	is_bad (($err < 160) or ($err > 210), 'PRINT timing');
+}
 print "<185> elapsed time=$err\n";
 
     # tie to READLINE method
-$tick=$ob->get_tick_count;
-$fail = <PORT>;
-is_ok($^E == 1121);				# 24
-$tock=$ob->get_tick_count;
+SKIP: {
+    skip "Can't rely on tied input/output", 18 if $BUFFEROUT;
+    $tick=$ob->get_tick_count;
+    $fail = <PORT>;
+    $tock=$ob->get_tick_count;
+    is(0+$^E, 1121, 'timeout error');
 
-is_bad(defined $fail);				# 25
-$err=$tock - $tick;
-is_bad (($err < 800) or ($err > 1200));		# 26
-print "<1000> elapsed time=$err\n";
+    is_bad(defined $fail, 'READLINE returns undef');
+    $err=$tock - $tick;
+    is_bad (($err < 800) or ($err > 1200), 'READLINE timeout');
+    print "<1000> elapsed time=$err\n";
 
-$tick=$ob->get_tick_count;
-@opts = <PORT>;
-is_ok($^E == 1121);				# 27
-$tock=$ob->get_tick_count;
+    $tick=$ob->get_tick_count;
+    @opts = <PORT>;
+    $tock=$ob->get_tick_count;
+    is(0+$^E, 1121, 'timeout error');
 
-is_bad(@opts);					# 28
-$err=$tock - $tick;
-is_bad (($err < 800) or ($err > 1200));		# 29
-print "<1000> elapsed time=$err\n";
+    is(scalar @opts, 0, 'slurp returns empty');
+    $err=$tock - $tick;
+    is_bad (($err < 800) or ($err > 1200), 'slurp timeout');
+    print "<1000> elapsed time=$err\n";
 
     # tie to PRINTF method
-$tick=$ob->get_tick_count;
-$pass=printf PORT "123456789_%s_987654321", $line;
-is_zero($^E);					# 30
-$tock=$ob->get_tick_count;
+    $tick=$ob->get_tick_count;
+    $pass=printf PORT "123456789_%s_987654321", $line;
+    is(0+$^E, 0, 'confirm no error');
+    $tock=$ob->get_tick_count;
 
-is_ok($pass == 1);				# 31
-$err=$tock - $tick;
-is_bad (($err < 180) or ($err > 235));		# 32
-print "<205> elapsed time=$err\n";
+    is($pass, 1, 'PRINTF method');
+    $err=$tock - $tick;
+    is_bad (($err < 180) or ($err > 235), 'PRINTF timing');
+    print "<205> elapsed time=$err\n";
 
     # tie to GETC method
-$tick=$ob->get_tick_count;
-$fail = getc PORT;
-is_ok($^E);					# 33
-$tock=$ob->get_tick_count;
+    $tick=$ob->get_tick_count;
+    $fail = getc PORT;
+    is(0+$^E, 1121, 'timeout error');
+    $tock=$ob->get_tick_count;
 
-is_bad(defined $fail);				# 34
-$err=$tock - $tick;
-is_bad (($err < 800) or ($err > 1200));		# 35
-print "<1000> elapsed time=$err\n";
+    is_bad(defined $fail, 'GETC returns undef');
+    $err=$tock - $tick;
+    is_bad (($err < 800) or ($err > 1200), 'GETC timing');
+    print "<1000> elapsed time=$err\n";
 
     # tie to WRITE method
-$tick=$ob->get_tick_count;
-if ( $] < 5.005 ) {
-    $pass=print PORT $line;
-    is_ok($pass == 1);				# 36
-}
-else {
+    $tick=$ob->get_tick_count;
     $pass=syswrite PORT, $line, length($line), 0;
-    is_ok($pass == 180);			# 36
-}
-is_zero($^E);					# 37
-$tock=$ob->get_tick_count;
+    is($pass, 180, 'syswrite count');
+    is(0+$^E, 0, 'confirm no error');
+    $tock=$ob->get_tick_count;
 
-$err=$tock - $tick;
-is_bad (($err < 160) or ($err > 210));		# 38
-print "<185> elapsed time=$err\n";
+    $err=$tock - $tick;
+    is_bad (($err < 160) or ($err > 210), 'syswrite timing');
+    print "<185> elapsed time=$err\n";
 
     # tie to READ method
-my $in = "1234567890";
-$tick=$ob->get_tick_count;
-$fail = sysread (PORT, $in, 5, 0);
-is_ok($^E);					# 39
-$tock=$ob->get_tick_count;
+    my $in = "1234567890";
+    $tick=$ob->get_tick_count;
+    $fail = sysread (PORT, $in, 5, 0);
+    is(0+$^E, 1121, 'timeout error');
+    $tock=$ob->get_tick_count;
 
-is_bad(defined $fail);				# 40
-$err=$tock - $tick;
-is_bad (($err < 800) or ($err > 1200));		# 41
-print "<1000> elapsed time=$err\n";
+    is_bad(defined $fail, 'sysread returns undef');
+    $err=$tock - $tick;
+    is_bad (($err < 800) or ($err > 1200), 'sysread timing');
+    print "<1000> elapsed time=$err\n";
+}
 
-    # READLINE hardware errors
+    # force READLINE hardware errors
+$fail = $ob->input; # should clear any remaining characters
 ($blk, $pass, $fail, $err)=$ob->is_status(0x8);	# test only
 $tick=$ob->get_tick_count;
 $fail = <PORT>;
 $tock=$ob->get_tick_count;
-is_ok($^E == 1117);				# 42
-is_bad(defined $fail);				# 43
+is(0+$^E, 1117, 'forced hardware error');
+is_bad(defined $fail, 'error returns undef');
 $err=$tock - $tick;
-is_bad ($err > 100);				# 44
+is_bad ($err > 100, 'rapidly');
 print "<0> elapsed time=$err\n";
-is_ok ($ob->reset_error == 0);			# 45
+is ($ob->reset_error, 0, 'reset_error');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
-
+## $fail = $ob->input; # should clear any remaining characters
 ($blk, $pass, $fail, $err)=$ob->is_status(0x8);	# test only
 $tick=$ob->get_tick_count;
 @opts = <PORT>;
 $tock=$ob->get_tick_count;
-is_ok($^E == 1117);				# 46
-is_bad(@opts);					# 47
+is(0+$^E, 1117, 'forced hardware error');
+is_bad(scalar @opts, 'slurp returns undef');
 $err=$tock - $tick;
-is_bad ($err > 100);				# 48
+is_bad ($err > 100, 'quickly');
 print "<0> elapsed time=$err\n";
-is_zero ($ob->reset_error);			# 49
+is ($ob->reset_error, 0, 'reset_error');
 
     # READLINE data processing
-is_ok ($ob->linesize == 1);			# 50
-is_zero ($ob->linesize(0));			# 51
-is_ok ($ob->lookclear("First\nSecond\n\nFourth\nLast Line\nEND") == 1);	# 52
+is($ob->linesize, 1, 'linesize default');
+is($ob->linesize(0), 0, 'linesize(0)');
+is($ob->lookclear("First\nSecond\n\nFourth\nLast Line\nEND"), 1, 'lookclear five line load');
 
-$tick=$ob->get_tick_count;
-$pass = <PORT>;
-$tock=$ob->get_tick_count;
-is_zero($^E);					# 53
-is_ok($pass eq "First\n");			# 54
-$err=$tock - $tick;
-is_bad ($err > 100);				# 55
-print "<0> elapsed time=$err\n";
+SKIP: {
+    skip "Can't rely on no input", 37 if $BUFFEROUT;
+    $tick=$ob->get_tick_count;
+    $pass = <PORT>;
+    $tock=$ob->get_tick_count;
+    is(0+$^E, 0, 'no error');
+    is($pass, "First\n", 'first line');
+    $err=$tock - $tick;
+    is_bad ($err > 100, 'should be fast');
+    print "<0> elapsed time=$err\n";
 
-is_ok ($ob->lastline("Last L..e") eq "Last L..e");	# 56
-$tick=$ob->get_tick_count;
-@opts = <PORT>;
-$tock=$ob->get_tick_count;
-is_zero($^E);					# 57
-is_ok($#opts == 3);				# 58
-is_ok($opts[0] eq "Second\n");			# 59
-is_ok($opts[1] eq "\n");			# 60
-is_ok($opts[2] eq "Fourth\n");			# 61
-is_ok($opts[3] eq "Last Line\n");		# 62
+    is($ob->lastline("Last L..e"), "Last L..e", 'lastline');
+    $ob->reset_error;
+    $tick=$ob->get_tick_count;
+    @opts = <PORT>;
+    $tock=$ob->get_tick_count;
+    is(0+$^E, 0, 'check no error');
+    is($#opts, 3, 'four more lines');
+    is($opts[0], "Second\n", 'second line');
+    is($opts[1], "\n", 'third line');
+    is($opts[2], "Fourth\n", 'fourth line');
+    is($opts[3], "Last Line\n", 'fifth line');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
-
-($pass, $fail, $patt, $err) = $ob->lastlook;
-is_ok ($pass eq "");				# 63
-is_ok ($fail eq "END");				# 64
-is_ok ($patt eq "\n");				# 65
-is_ok ($err eq "");				# 66
-is_ok ($ob->matchclear eq "");			# 67
-
-    # preload and do three lines non-blocking
-is_ok ($ob->lookclear("One\n\nThree\nFour\nLast Line\nplus") == 1);	# 68
-$tick=$ob->get_tick_count;
-$pass = <PORT>;
-$tock=$ob->get_tick_count;
-is_zero($^E);					# 69
-is_ok($pass eq "One\n");			# 70
-$err=$tock - $tick;
-is_bad ($err > 100);				# 71
-print "<0> elapsed time=$err\n";
-
-$pass = <PORT>;
-is_ok($pass eq "\n");				# 72
-($pass, $fail, $patt, $err) = $ob->lastlook;
-is_ok ($pass eq "");				# 73
-is_ok ($fail eq "Three\nFour\nLast Line\nplus");	# 74
-is_ok ($patt eq "\n");				# 75
-
-$pass = <PORT>;
-is_ok($pass eq "Three\n");			# 76
-($pass, $fail, $patt, $err) = $ob->lastlook;
-is_ok ($pass eq "");				# 77
-is_ok ($fail eq "Four\nLast Line\nplus");	# 78
-is_ok ($patt eq "\n");				# 79
+    ($in, $out, $patt, $instead) = $ob->lastlook;
+    is ($in, "", 'input that MATCHED');
+    is ($out, "END", 'input AFTER match');
+    is ($patt, "\n", 'PATTERN that matched');
+    is ($instead, "", 'input INSTEAD of matching');
+    is ($ob->matchclear, "", 'MATCH was not first');
+    
+        # preload and do three lines non-blocking
+    is($ob->lookclear("One\n\nThree\nFour\nLast Line\nplus"), 1, 'load for non-blocking');
+    $ob->reset_error;
+    $tick=$ob->get_tick_count;
+    $pass = <PORT>;
+    $tock=$ob->get_tick_count;
+    is(0+$^E, 0, 'check no error');
+    ## $ob->reset_error;
+    is($pass, "One\n", 'line One');
+    $err=$tock - $tick;
+    is_bad ($err > 100, 'speedy');
+    print "<0> elapsed time=$err\n";
+    
+    $ob->reset_error;
+    $pass = <PORT>;
+    is(0+$^E, 0, 'check no error');
+    ## $ob->reset_error;
+    is($pass, "\n", 'line Two');
+    ($in, $out, $patt, $instead) = $ob->lastlook;
+    is ($in, "", 'input that MATCHED');
+    is ($out, "Three\nFour\nLast Line\nplus", 'input AFTER match');
+    is ($patt, "\n", 'PATTERN that matched');
+    
+    $ob->reset_error;
+    $pass = <PORT>;
+    is(0+$^E, 0, 'check no error');
+    is($pass, "Three\n", 'line Three');
+    ($in, $out, $patt, $instead) = $ob->lastlook;
+    is ($in, "", 'input that MATCHED');
+    is ($out, "Four\nLast Line\nplus", 'input AFTER match');
+    is ($patt, "\n", 'PATTERN that matched');
 
     # switch back to blocking reads
-is_ok ($ob->linesize(1) == 1);			# 80
-$tick=$ob->get_tick_count;
-$pass = <PORT>;
-$tock=$ob->get_tick_count;
-is_ok($^E == 1121);				# 81
-$err=$tock - $tick;
-is_bad (($err < 800) or ($err > 1200));		# 82
-print "<1000> elapsed time=$err\n";
+    is($ob->linesize(1), 1, 'linesize');
+    
+    $ob->reset_error;
+    $tick=$ob->get_tick_count;
+    $fail = <PORT>;
+    $tock=$ob->get_tick_count;
+    is(0+$^E, 1121, 'timeout error');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
+    is_bad(defined $fail, 'READLINE returns undef');
+    $err=$tock - $tick;
+    is_bad (($err < 800) or ($err > 1200), 'READLINE timeout');
+    print "<1000> elapsed time=$err\n";
+
+    ($in, $out, $patt, $instead) = $ob->lastlook;
+    is ($in, "", 'input that MATCHED');
+    is ($out, "Four\nLast Line\nplus", 'input AFTER match');
+    is ($patt, "", 'PATTERN that matched');
+    is ($instead, "", 'input INSTEAD of matching');
 }
-
-is_bad($pass);					# 83
-($pass, $fail, $patt, $err) = $ob->lastlook;
-is_ok ($pass eq "");				# 84
-is_ok ($fail eq "Four\nLast Line\nplus");	# 85
-is_ok ($patt eq "");				# 86
-is_ok ($err eq "");				# 87
 
     # destructor = CLOSE method
-if ( $] < 5.005 ) {
-    is_ok($ob->close);				# 88
-}
-else {
-    is_ok(close PORT);				# 88
-}
+ok(close PORT, 'close');
 
     # destructor = DESTROY method
 undef $ob;					# Don't forget this one!!

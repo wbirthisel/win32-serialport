@@ -1,34 +1,30 @@
-#! perl -w
-
-use lib '.','./t','..','./lib','../lib';
+use lib '.','./t','./lib','../lib';
 # can run from here or distribution base
-require 5.003;
 
-# Before installation is performed this script should be runnable with
-# `perl test4.t time' which pauses `time' seconds (0..5) between pages
+use Test::More;
+### use Data::Dumper;
+eval "use DefaultPort;";
+if ($@) {
+    plan skip_all => 'No serial port selected for use with testing';
+}
+else {
+    plan tests => 517;
+}
+cmp_ok($Win32::SerialPort::VERSION, '>=', 0.20, 'VERSION check');
 
-######################### We start with some black magic to print on failure.
+# USB and virtual ports can't test output timing, first fail will set this
+my $BUFFEROUT=0;
 
-# Change 1..1 below to 1..last_test_to_print .
-# (It may become useful if the test is moved to ./t subdirectory.)
+use Win32::SerialPort qw( :STAT 0.20 );
 
-BEGIN { $| = 1; print "1..516\n"; }
-END {print "not ok 1\n" unless $loaded;}
-use AltPort 0.18;		# check inheritance & export
-require "DefaultPort.pm";
-$loaded = 1;
-print "ok 1\n";
+use strict;
+use warnings;
 
-######################### End of black magic.
-
-# Insert your test code below (better if it prints "ok 13"
-# (correspondingly "not ok 13") depending on the success of chunk 13
-# of the test code):
+use AltPort 0.20;		# check inheritance & export
+use Win32;
 
 # tests start using file created by test1.pl
 
-use strict;
-use Win32;
 
 my $file = "COM1";
 if ($SerialJunk::Makefile_Test_Port) {
@@ -38,13 +34,6 @@ if (exists $ENV{Makefile_Test_Port}) {
     $file = $ENV{Makefile_Test_Port};
 }
 
-my $naptime = 0;	# pause between output pages
-if (@ARGV) {
-    $naptime = shift @ARGV;
-    unless ($naptime =~ /^[0-5]$/) {
-	die "Usage: perl test?.t [ page_delay (0..5) ] [ COMx ]";
-    }
-}
 if (@ARGV) {
     $file = shift @ARGV;
 }
@@ -66,1001 +55,884 @@ my $e;
 my $tick;
 my $tock;
 my $patt;
-my @necessary_param = Win32::SerialPort->set_test_mode_active(1);
-
-sub is_ok {
-    my $result = shift;
-    printf (($result ? "" : "not ")."ok %d\n",$tc++);
-    return $result;
-}
-
-sub is_zero {
-    my $result = shift;
-    if (defined $result) {
-        return is_ok ($result == 0);
-    }
-    else {
-        printf ("not ok %d\n",$tc++);
-    }
-}
+my $s="testing is a wonderful thing - this is a 60 byte long string";
+#      123456789012345678901234567890123456789012345678901234567890
+my $line = $s.$s.$s;		# about 185 MS at 9600 baud
+my @necessary_param = AltPort->set_test_mode_active(1);
 
 sub is_bad {
-    my $result = shift;
-    printf (($result ? "not " : "")."ok %d\n",$tc++);
-    return (not $result);
+    local $Test::Builder::Level = $Test::Builder::Level + 1;
+    return ok(!shift, shift);
 }
 
 # 2: Constructor
 
-unless (is_ok ($ob = Win32::SerialPort->start ($cfgfile))) {
-    printf "could not open port from $cfgfile\n";
-    exit 1;
-    # next test would die at runtime without $ob
-}
+ok($ob = AltPort->start ($cfgfile), "start $cfgfile");
+die unless ($ob);    # next tests would die at runtime
 
 #### 3 - 26: Check Port Capabilities Match Save
 
-is_ok ($ob->is_xon_char == 0x11);		# 3
-is_ok ($ob->is_xoff_char == 0x13);		# 4
-is_ok ($ob->is_eof_char == 0);			# 5
-is_ok ($ob->is_event_char == 0);		# 6
-is_ok ($ob->is_error_char == 0);		# 7
-is_ok ($ob->is_baudrate == 9600);		# 8
-is_ok ($ob->is_parity eq "none");		# 9
-is_ok ($ob->is_databits == 8);			# 10
-is_ok ($ob->is_stopbits == 1);			# 11
-is_ok ($ob->is_handshake eq "none");		# 12
-is_ok ($ob->is_read_interval == 0xffffffff);	# 13
-is_ok ($ob->is_read_const_time == 0);		# 14
-is_ok ($ob->is_read_char_time == 0);		# 15
-is_ok ($ob->is_write_const_time == 200);	# 16
-is_ok ($ob->is_write_char_time == 10);		# 17
+is($ob->is_xon_char, 0x11, 'is_xon_char');
+is($ob->is_xoff_char, 0x13, 'is_xoff_char');
+is($ob->is_eof_char, 0, 'is_eof_char');
+is($ob->is_event_char, 0, 'is_event_char');
+is($ob->is_error_char, 0, 'is_error_char');
+is($ob->is_baudrate, 9600, 'is_baudrate');
+is($ob->is_parity, "none", 'is_parity');
+is($ob->is_databits, 8, 'is_databits');
+is($ob->is_stopbits, 1, 'is_stopbits');
+is($ob->is_handshake, "none", 'is_handshake');
+is($ob->is_read_interval, 0xffffffff, 'is_read_interval');
+is($ob->is_read_const_time, 0, 'is_read_const_time');
+is($ob->is_read_char_time, 0, 'is_read_char_time');
+is($ob->is_write_const_time, 200, 'is_write_const_time');
+is($ob->is_write_char_time, 10, 'is_write_char_time');
 
 ($in, $out)= $ob->are_buffers;
-is_ok (4096 == $in);				# 18
-is_ok (4096 == $out);				# 19
+is(4096, $in, 'buffer in');
+is(4096, $out, 'buffer out');
 
-is_ok ($ob->alias eq "AltPort");		# 20
-is_ok ($ob->is_binary == 1);			# 21
-is_zero (scalar $ob->is_parity_enable);		# 22
+is($ob->alias, "TestPort", 'alias');
+is($ob->is_binary, 1, 'is_binary');
+is(scalar $ob->is_parity_enable, 0, 'is_parity_enable');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
-
-is_ok ($ob->is_xoff_limit == 200);		# 23
-is_ok ($ob->is_xon_limit == 100);		# 24
-is_ok ($ob->user_msg == 1);			# 25
-is_ok ($ob->error_msg == 1);			# 26
+is($ob->is_xoff_limit, 200, 'is_xoff_limit');
+is($ob->is_xon_limit, 100, 'is_xon_limit');
+is($ob->user_msg, 1, 'user_msg');
+is($ob->error_msg, 1, 'error_msg');
 
 ### 27 - 65: Defaults for stty and lookfor
 
 @opts = $ob->are_match;
-is_ok ($#opts == 0);				# 27
-is_ok ($opts[0] eq "\n");			# 28
-is_ok ($ob->lookclear == 1);			# 29
-is_ok ($ob->is_prompt eq "");			# 30
-is_ok ($ob->lookfor eq "");			# 31
-is_ok ($ob->streamline eq "");			# 32
+is($#opts, 0, 'last are_match element');
+is($opts[0], "\n", 'are_match default');
+is($ob->lookclear, 1, 'lookclear');
+is($ob->is_prompt, "", 'is_prompt');
+is($ob->lookfor, "", 'lookfor');
+is($ob->streamline, "", 'streamline');
 
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "");				# 33
-is_ok ($out eq "");				# 34
-is_ok ($patt eq "");				# 35
-is_ok ($instead eq "");				# 36
-is_ok ($ob->matchclear eq "");			# 37
+is($in, "", 'lastlook in');
+is($out, "", 'lastlook out');
+is($patt, "", 'lastlook pat');
+is($instead, "", 'lastlook instead');
+is($ob->matchclear, "", 'matchclear');
 
-is_ok ($ob->stty_intr eq "\cC");		# 38
-is_ok ($ob->stty_quit eq "\cD");		# 39
-is_ok ($ob->stty_eof eq "\cZ");			# 40
-is_ok ($ob->stty_eol eq "\cJ");			# 41
-is_ok ($ob->stty_erase eq "\cH");		# 42
-is_ok ($ob->stty_kill eq "\cU");		# 43
-is_ok ($ob->stty_bsdel eq "\cH \cH");		# 44
-
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
+is($ob->stty_intr, "\cC", 'stty_intr');
+is($ob->stty_quit, "\cD", 'stty_quit');
+is($ob->stty_eof, "\cZ", 'stty_eof');
+is($ob->stty_eol, "\cJ", 'stty_eol');
+is($ob->stty_erase, "\cH", 'stty_erase');
+is($ob->stty_kill, "\cU", 'stty_kill');
+is($ob->stty_bsdel, "\cH \cH", 'stty_bsdel');
 
 my $space76 = " "x76;
 my $cstring = "\r$space76\r";
-is_ok ($ob->stty_clear eq $cstring);		# 45
+is($ob->stty_clear, $cstring, 'stty_clear');
 
-is_ok ($ob->is_stty_intr == 3);			# 46
-is_ok ($ob->is_stty_quit == 4);			# 47
-is_ok ($ob->is_stty_eof == 26);			# 48
-is_ok ($ob->is_stty_eol == 10);			# 49
-is_ok ($ob->is_stty_erase == 8);		# 50
-is_ok ($ob->is_stty_kill == 21);		# 51
+is($ob->is_stty_intr, 3, 'is_stty_intr');
+is($ob->is_stty_quit, 4, 'is_stty_quit');
+is($ob->is_stty_eof, 26, 'is_stty_eof');
+is($ob->is_stty_eol, 10, 'is_stty_eol');
+is($ob->is_stty_erase, 8, 'is_stty_erase');
+is($ob->is_stty_kill, 21, 'is_stty_kill');
 
-is_ok ($ob->stty_echo == 0);			# 52
-is_ok ($ob->stty_echoe == 1);			# 53
-is_ok ($ob->stty_echok == 1);			# 54
-is_ok ($ob->stty_echonl == 0);			# 55
-is_ok ($ob->stty_echoke == 1);			# 56
-is_ok ($ob->stty_echoctl == 0);			# 57
-is_ok ($ob->stty_istrip == 0);			# 58
-is_ok ($ob->stty_icrnl == 0);			# 59
-is_ok ($ob->stty_ocrnl == 0);			# 60
-is_ok ($ob->stty_igncr == 0);			# 61
-is_ok ($ob->stty_inlcr == 0);			# 62
-is_ok ($ob->stty_onlcr == 1);			# 63
-is_ok ($ob->stty_opost == 0);			# 64
-is_ok ($ob->stty_isig == 0);			# 65
-is_ok ($ob->stty_icanon == 0);			# 66
-
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
+is($ob->stty_echo, 0, 'stty_echo');
+is($ob->stty_echoe, 1, 'stty_echoe');
+is($ob->stty_echok, 1, 'stty_echok');
+is($ob->stty_echonl, 0, 'stty_echonl');
+is($ob->stty_echoke, 1, 'stty_echoke');
+is($ob->stty_echoctl, 0, 'stty_echoctl');
+is($ob->stty_istrip, 0, 'stty_istrip');
+is($ob->stty_icrnl, 0, 'stty_icrnl');
+is($ob->stty_ocrnl, 0, 'stty_ocrnl');
+is($ob->stty_igncr, 0, 'stty_igncr');
+is($ob->stty_inlcr, 0, 'stty_inlcr');
+is($ob->stty_onlcr, 1, 'stty_onlcr');
+is($ob->stty_opost, 0, 'stty_opost');
+is($ob->stty_isig, 0, 'stty_isig');
+is($ob->stty_icanon, 0, 'stty_icanon');
 
 #### 67 - 73: Application Parameter Defaults
 
-is_ok ($ob->devicetype eq 'none');		# 67
-is_ok ($ob->hostname eq 'localhost');		# 68
-is_zero ($ob->hostaddr);			# 69
-is_ok ($ob->datatype eq 'raw');			# 70
-is_ok ($ob->cfg_param_1 eq 'none');		# 71
-is_ok ($ob->cfg_param_2 eq 'none');		# 72
-is_ok ($ob->cfg_param_3 eq 'none');		# 73
+is($ob->devicetype, 'none', 'devicetype');
+is($ob->hostname, 'localhost', 'hostname');
+is($ob->hostaddr, 0, 'hostaddr');			# 69
+is($ob->datatype, 'raw', 'datatype');
+is($ob->cfg_param_1, 'none', 'cgf_param_1');
+is($ob->cfg_param_2, 'none', 'cgf_param_2');
+is($ob->cfg_param_3, 'none', 'cgf_param_3');
 
 print "Change all the parameters\n";
 
 #### 74 - 227: Modify All Port Capabilities
 
-is_ok ($ob->is_xon_char(1) == 0x01);		# 74
-is_ok ($ob->is_xoff_char(2) == 0x02);		# 75
+is($ob->is_xon_char(1), 0x01, 'is_xon_char');
+is($ob->is_xoff_char(2), 0x02, 'is_xoff_char');
 
-is_ok ($ob->devicetype('type') eq 'type');	# 76
-is_ok ($ob->hostname('any') eq 'any');		# 77
-is_ok ($ob->hostaddr(9000) == 9000);		# 78
-is_ok ($ob->datatype('fixed') eq 'fixed');	# 79
-is_ok ($ob->cfg_param_1('p1') eq 'p1');		# 80
-is_ok ($ob->cfg_param_2('p2') eq 'p2');		# 81
-is_ok ($ob->cfg_param_3('p3') eq 'p3');		# 82
+is($ob->devicetype('type'), 'type', 'devicetype');
+is($ob->hostname('any'), 'any', 'xhostname');
+is($ob->hostaddr(9000), 9000, 'hostaddr');
+is($ob->datatype('fixed'), 'fixed', 'datatype');
+is($ob->cfg_param_1('p1'), 'p1', 'cfg_param_1');
+is($ob->cfg_param_2('p2'), 'p2', 'cfg_param_2');
+is($ob->cfg_param_3('p3'), 'p3', 'cfg_param_3');
 
 $pass = $ob->can_spec_char;			# generic port can't set
 if ($pass) {
-    is_ok ($ob->is_eof_char(4) == 0x04);	# 83
-    is_ok ($ob->is_event_char(3) == 0x03);	# 84
-    is_ok ($ob->is_error_char(5) == 5);		# 85
+    is($ob->is_eof_char(4), 0x04, 'is_eof_char');
+    is($ob->is_event_char(3), 0x03, 'is_event_char');
+    is($ob->is_error_char(5), 5, 'is_error_char');
 }
 else {
-    is_ok ($ob->is_eof_char(4) == 0);		# 83
-    is_ok ($ob->is_event_char(3) == 0);		# 84
-    is_ok ($ob->is_error_char(5) == 0);		# 85
+    is($ob->is_eof_char(4), 0, 'is_eof_char');
+    is($ob->is_event_char(3), 0, 'is_event_char');
+    is($ob->is_error_char(5), 0, 'is_error_char');
 }
 
-is_ok ($ob->is_baudrate(1200) == 1200);		# 86
-is_ok ($ob->is_parity("odd") eq "odd");		# 87
+is($ob->is_baudrate(1200), 1200, 'is_baudrate');
+is($ob->is_parity("odd"), "odd", 'is_parity');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
-
-is_ok ($ob->is_databits(7) == 7);		# 88
-is_ok ($ob->is_stopbits(2) == 2);		# 89
-is_ok ($ob->is_handshake("xoff") eq "xoff");	# 90
-is_ok ($ob->is_read_interval(0) == 0x0);	# 91
-is_ok ($ob->is_read_const_time(1000) == 1000);	# 92
-is_ok ($ob->is_read_char_time(50) == 50);	# 93
-is_ok ($ob->is_write_const_time(2000) == 2000);	# 94
-is_ok ($ob->is_write_char_time(75) == 75);	# 95
+is($ob->is_databits(7), 7, 'is_databits');
+is($ob->is_stopbits(2), 2, 'is_stopbits');
+is($ob->is_handshake("xoff"), "xoff", 'is_handshake');
+is($ob->is_read_interval(0), 0x0, 'is_read_interval');
+is($ob->is_read_const_time(1000), 1000, 'is_read_const_time');
+is($ob->is_read_char_time(50), 50, 'is_read_char_time');
+is($ob->is_write_const_time(2000), 2000, 'is_write_const_time');
+is($ob->is_write_char_time(75), 75, 'is_write_char_time');
 
 ($in, $out)= $ob->buffers(8092, 1024);
-is_ok (8092 == $ob->is_read_buf);		# 96
-is_ok (1024 == $ob->is_write_buf);		# 97
+is(8092, $ob->is_read_buf, 'is_read_buf');
+is(1024, $ob->is_write_buf, 'is_write_buf');
 
-is_ok ($ob->alias("oddPort") eq "oddPort");	# 98
-is_ok ($ob->is_xoff_limit(45) == 45);		# 99
+is($ob->alias("oddPort"), "oddPort", 'alias');
+is($ob->is_xoff_limit(45), 45, 'is_xoff_limit');
 
 $pass = $ob->can_parity_enable;
 if ($pass) {
-    is_ok (scalar $ob->is_parity_enable(1));	# 100
+    # Windows bug, not fixed since NT4
+    ok(defined $ob->is_parity_enable(1), 'is_parity_enable ON');
 }
 else {
-    is_zero (scalar $ob->is_parity_enable);	# 100
+    is(scalar $ob->is_parity_enable, 0, 'is_parity_enable OFF');
 }
 
-is_ok ($ob->is_xon_limit(90) == 90);		# 101
-is_zero ($ob->user_msg(0));			# 102
-is_zero ($ob->error_msg(0));			# 103
+is($ob->is_xon_limit(90), 90, 'is_xon_limit');
+is($ob->user_msg(0), 0, 'user_msg OFF');
+is($ob->error_msg(0), 0, 'error_msg OFF');
 
 @opts = $ob->are_match ("END","Bye");
-is_ok ($#opts == 1);				# 104
-is_ok ($opts[0] eq "END");			# 105
-is_ok ($opts[1] eq "Bye");			# 106
-is_ok ($ob->stty_echo(0) == 0);			# 107
-is_ok ($ob->lookclear("Good Bye, Hello") == 1);	# 108
+is($#opts, 1, 'are_match count');
+is($opts[0], "END", 'END');
+is($opts[1], "Bye", 'Bye');
+is($ob->stty_echo(0), 0, 'stty_echo(0)');
+is($ob->lookclear("Good Bye, Hello"), 1, 'lookclear("Good Bye, Hello"');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
-
-is_ok ($ob->is_prompt("Hi:") eq "Hi:");		# 109
-is_ok ($ob->lookfor eq "Good ");		# 110
+is($ob->is_prompt("Hi:"), "Hi:", 'is_prompt');
+is($ob->lookfor, "Good ", 'lookfor');
 
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "Bye");				# 111
-is_ok ($out eq ", Hello");			# 112
-is_ok ($patt eq "Bye");				# 113
-is_ok ($instead eq "");				# 114
-is_ok ($ob->matchclear eq "Bye");		# 115
-is_ok ($ob->matchclear eq "");			# 116
+is($in, "Bye", 'input that MATCHED');
+is($out, ", Hello", 'input AFTER match');
+is($patt, "Bye", 'PATTERN that matched');
+is($instead, "", 'input INSTEAD of match');
+is($ob->matchclear, "Bye", 'matched at beginning');
+is($ob->matchclear, "", 'reset matchclear');
 
-is_ok ($ob->lookclear("Bye, Bye, Love. The END has come") == 1);	# 117
-is_ok ($ob->lookfor eq "");			# 118
-
-($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "Bye");				# 119
-is_ok ($out eq ", Bye, Love. The END has come");# 120
-is_ok ($patt eq "Bye");				# 121
-is_ok ($instead eq "");				# 122
-is_ok ($ob->matchclear eq "Bye");		# 123
+is($ob->lookclear("Bye, Bye, Love. The END has come"), 1, 'lookclear("Bye, Bye, Love. The END has come")');
+is($ob->lookfor, "", 'lookfor');
 
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "");				# 124
-is_ok ($out eq ", Bye, Love. The END has come");# 125
-is_ok ($patt eq "Bye");				# 126
-is_ok ($instead eq "");				# 127
+is($in, "Bye", 'input that MATCHED');
+is($out, ", Bye, Love. The END has come", 'input AFTER match');
+is($patt, "Bye", 'PATTERN that matched');
+is($instead, "", 'input INSTEAD of match');
+is($ob->matchclear, "Bye", 'matched at beginning');
 
-is_ok ($ob->lookfor eq ", ");			# 128
+# data not reset by lastlook, but by matchclear
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "Bye");				# 129
-is_ok ($out eq ", Love. The END has come");	# 130
+is($in, "", 'input that MATCHED');
+is($out, ", Bye, Love. The END has come", 'input AFTER match');
+is($patt, "Bye", 'PATTERN that matched');
+is($instead, "", 'input INSTEAD of match');
+is($ob->matchclear, "", 'matchclear cleared initial match');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
-
-is_ok ($patt eq "Bye");				# 131
-is_ok ($instead eq "");				# 132
-is_ok ($ob->matchclear eq "Bye");		# 133
-
-is_ok ($ob->lookfor eq ", Love. The ");		# 134
+is($ob->lookfor, ", ", 'lookfor');
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "END");				# 135
-is_ok ($out eq " has come");			# 136
-is_ok ($patt eq "END");				# 137
-is_ok ($instead eq "");				# 138
-is_ok ($ob->matchclear eq "END");		# 139
-is_ok ($ob->lookfor eq "");			# 140
-is_ok ($ob->matchclear eq "");			# 141
+is($in, "Bye", 'input that MATCHED');
+is($out, ", Love. The END has come", 'input AFTER match');
+is($patt, "Bye", 'PATTERN that matched');
+is($instead, "", 'input INSTEAD of match');
+is($ob->matchclear, "Bye", 'WHAT matched');
 
+is($ob->lookfor, ", Love. The ", 'lookfor');
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "");				# 142
-is_ok ($patt eq "");				# 143
-is_ok ($instead eq " has come");		# 144
-
-is_ok ($ob->lookclear("First\nSecond\nThe END") == 1);	# 145
-is_ok ($ob->lookfor eq "First\nSecond\nThe ");	# 146
-($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "END");				# 147
-is_ok ($out eq "");				# 148
-is_ok ($patt eq "END");				# 149
-is_ok ($instead eq "");				# 150
-
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
-
-is_ok ($ob->lookclear("Good Bye, Hello") == 1);	# 151
-is_ok ($ob->streamline eq "Good ");		# 152
+is($in, "END", 'input that MATCHED');
+is($out, " has come", 'input AFTER match');
+is($patt, "END", 'PATTERN that matched');
+is($instead, "", 'input INSTEAD of match');
+is($ob->matchclear, "END", 'matched at beginning');
+is($ob->lookfor, "", 'lookfor');
+is($ob->matchclear, "", 'matchclear');
 
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "Bye");				# 153
-is_ok ($out eq ", Hello");			# 154
-is_ok ($patt eq "Bye");				# 155
-is_ok ($instead eq "");				# 156
+is($in, "", 'input that MATCHED');
+is($patt, "", 'PATTERN that matched');
+is($instead, " has come", 'input INSTEAD of match');
 
-is_ok ($ob->lookclear("Bye, Bye, Love. The END has come") == 1);	# 157
-is_ok ($ob->streamline eq "");			# 158
+is($ob->lookclear("First\nSecond\nThe END"), 1, 'lookclear("First\nSecond\nThe END")');
+is($ob->lookfor, "First\nSecond\nThe ", 'lookfor');
+($in, $out, $patt, $instead) = $ob->lastlook;
+is($in, "END", 'input that MATCHED');
+is($out, "", 'input AFTER match');
+is($patt, "END", 'PATTERN that matched');
+is($instead, "", 'input INSTEAD of match');
+
+is($ob->lookclear("Good Bye, Hello"), 1, 'lookclear("Good Bye, Hello"');
+is($ob->streamline, "Good ", 'streamline');
 
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "Bye");				# 159
-is_ok ($out eq ", Bye, Love. The END has come");# 160
+is($in, "Bye", 'input that MATCHED');
+is($out, ", Hello", 'input AFTER match');
+is($patt, "Bye", 'PATTERN that matched');
+is($instead, "", 'input INSTEAD of match');
 
-is_ok ($patt eq "Bye");				# 161
-is_ok ($instead eq "");				# 162
-is_ok ($ob->matchclear eq "Bye");		# 163
-
-($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "");				# 164
-is_ok ($out eq ", Bye, Love. The END has come");# 165
-is_ok ($patt eq "Bye");				# 166
-is_ok ($instead eq "");				# 167
-
-is_ok ($ob->streamline eq ", ");		# 168
-($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "Bye");				# 169
-is_ok ($out eq ", Love. The END has come");	# 170
-is_ok ($patt eq "Bye");				# 171
-
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
-
-is_ok ($instead eq "");				# 172
-is_ok ($ob->matchclear eq "Bye");		# 173
-
-is_ok ($ob->streamline eq ", Love. The ");	# 174
-($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "END");				# 175
-is_ok ($out eq " has come");			# 176
-is_ok ($patt eq "END");				# 177
-is_ok ($instead eq "");				# 178
-is_ok ($ob->matchclear eq "END");		# 179
-is_ok ($ob->streamline eq "");			# 180
-is_ok ($ob->matchclear eq "");			# 181
+is($ob->lookclear("Bye, Bye, Love. The END has come"), 1, 'lookclear("Bye, Bye, Love. The END has come")');
+is($ob->streamline, "", 'streamline');
 
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "");				# 182
-is_ok ($patt eq "");				# 183
-is_ok ($instead eq " has come");		# 184
+is($in, "Bye", 'input that MATCHED');
+is($out, ", Bye, Love. The END has come", 'input AFTER match');
+is($patt, "Bye", 'PATTERN that matched');
+is($instead, "", 'input INSTEAD of match');
+is($ob->matchclear, "Bye", 'matchclear');
 
-is_ok ($ob->lookclear("First\nSecond\nThe END") == 1);	# 185
-is_ok ($ob->streamline eq "First\nSecond\nThe ");	# 186
+# data not reset by lastlook, but by matchclear
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "END");				# 187
-is_ok ($out eq "");				# 188
-is_ok ($patt eq "END");				# 189
-is_ok ($instead eq "");				# 190
+is($in, "", 'input that MATCHED');
+is($out, ", Bye, Love. The END has come", 'input AFTER match');
+is($patt, "Bye", 'PATTERN that matched');
+is($instead, "", 'input INSTEAD of match');
+is($ob->matchclear, "", 'matchclear');
 
-is_ok ($ob->stty_intr("a") eq "a");		# 191
-is_ok ($ob->stty_quit("b") eq "b");		# 192
-is_ok ($ob->stty_eof("c") eq "c");		# 193
+is($ob->streamline, ", ", 'streamline');
+($in, $out, $patt, $instead) = $ob->lastlook;
+is($in, "Bye", 'input that MATCHED');
+is($out, ", Love. The END has come", 'input AFTER match');
+is($patt, "Bye", 'PATTERN that matched');
+is($instead, "", 'input INSTEAD of match');
+is($ob->matchclear, "Bye", 'matchclear');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
-
-is_ok ($ob->stty_eol("d") eq "d");		# 194
-is_ok ($ob->stty_erase("e") eq "e");		# 195
-is_ok ($ob->stty_kill("f") eq "f");		# 196
-
-is_ok ($ob->is_stty_intr == 97);		# 197
-is_ok ($ob->is_stty_quit == 98);		# 198
-is_ok ($ob->is_stty_eof == 99);			# 199
-
-is_ok ($ob->is_stty_eol == 100);		# 200
-is_ok ($ob->is_stty_erase == 101);		# 201
-is_ok ($ob->is_stty_kill == 102);		# 202
-
-is_ok ($ob->stty_clear("g") eq "g");		# 203
-is_ok ($ob->stty_bsdel("h") eq "h");		# 204
-is_ok ($ob->stty_echoe(0) == 0);		# 205
-
-is_ok ($ob->stty_echok(0) == 0);		# 206
-is_ok ($ob->stty_echonl(1) == 1);		# 207
-is_ok ($ob->stty_echoke(0) == 0);		# 208
-is_ok ($ob->stty_echoctl(1) == 1);		# 209
-is_ok ($ob->stty_istrip(1) == 1);		# 210
-is_ok ($ob->stty_icrnl(1) == 1);		# 211
-is_ok ($ob->stty_ocrnl(1) == 1);		# 212
-is_ok ($ob->stty_igncr(1) == 1);		# 213
-is_ok ($ob->stty_inlcr(1) == 1);		# 214
-is_ok ($ob->stty_onlcr(0) == 0);		# 215
-
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
-
-is_ok ($ob->stty_opost(1) == 1);		# 216
-is_ok ($ob->stty_isig(1) == 1);			# 217
-is_ok ($ob->stty_icanon(1) == 1);		# 218
-
-is_ok ($ob->lookclear == 1);			# 219
-is_ok ($ob->is_prompt eq "Hi:");		# 220
-is_ok ($ob->is_prompt("") eq "");		# 221
-is_ok ($ob->lookfor eq "");			# 222
+is($ob->streamline, ", Love. The ", 'streamline');
+($in, $out, $patt, $instead) = $ob->lastlook;
+is($in, "END", 'input that MATCHED');
+is($out, " has come", 'input AFTER match');
+is($patt, "END", 'PATTERN that matched');
+is($instead, "", 'input INSTEAD of match');
+is($ob->matchclear, "END", 'matchclear');
+is($ob->streamline, "", 'streamline');
+is($ob->matchclear, "", 'matchclear');
 
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "");				# 223
-is_ok ($out eq "");				# 224
-is_ok ($patt eq "");				# 225
-is_ok ($instead eq "");				# 226
-is_ok ($ob->stty_echo(1) == 1);			# 227
+is($in, "", 'input that MATCHED');
+is($patt, "", 'PATTERN that matched');
+is($instead, " has come", 'input INSTEAD of match');
+
+is($ob->lookclear("First\nSecond\nThe END"), 1, 'lookclear("First\nSecond\nThe END")');
+is($ob->streamline, "First\nSecond\nThe ", 'streamline');
+($in, $out, $patt, $instead) = $ob->lastlook;
+is($in, "END", 'input that MATCHED');
+is($out, "", 'input AFTER match');
+is($patt, "END", 'PATTERN that matched');
+is($instead, "", 'input INSTEAD of match');
+
+is($ob->stty_intr("a"), "a", 'stty_intr("a")');
+is($ob->stty_quit("b"), "b", 'stty_quit("b")');
+is($ob->stty_eof("c"), "c", 'stty_eof("c")');
+
+is($ob->stty_eol("d"), "d", 'stty_eol("d")');
+is($ob->stty_erase("e"), "e", 'stty_erase("e")');
+is($ob->stty_kill("f"), "f", 'stty_kill("f")');
+
+is($ob->is_stty_intr, 97, 'is_stty_intr');
+is($ob->is_stty_quit, 98, 'is_stty_quit');
+is($ob->is_stty_eof, 99, 'is_stty_eof');
+
+is($ob->is_stty_eol, 100, 'is_stty_eol');
+is($ob->is_stty_erase, 101, 'is_stty_erase');
+is($ob->is_stty_kill, 102, 'is_stty_kill');
+
+is($ob->stty_clear("g"), "g", 'stty_clear("g")');
+is($ob->stty_bsdel("h"), "h", 'stty_bsdel("h")');
+is($ob->stty_echoe(0), 0, 'stty_echoe(0)');
+
+is($ob->stty_echok(0), 0, 'stty_echok(0)');
+is($ob->stty_echonl(1), 1, 'stty_echonl(1)');
+is($ob->stty_echoke(0), 0, 'stty_echoke(0)');
+is($ob->stty_echoctl(1), 1, 'stty_echoctl(1)');
+is($ob->stty_istrip(1), 1, 'stty_istrip(1)');
+is($ob->stty_icrnl(1), 1, 'stty_icrnl(1)');
+is($ob->stty_ocrnl(1), 1, 'stty_ocrnl(1)');
+is($ob->stty_igncr(1), 1, 'stty_igncr(1)');
+is($ob->stty_inlcr(1), 1, 'stty_inlcr(1)');
+is($ob->stty_onlcr(0), 0, 'stty_onlcr(0)');
+
+is($ob->stty_opost(1), 1, 'stty_opost(1)');
+is($ob->stty_isig(1), 1, 'stty_isig(1)');
+is($ob->stty_icanon(1), 1, 'stty_icanon(1)');
+
+is($ob->lookclear, 1, 'lookclear');
+is($ob->is_prompt, "Hi:", 'is_prompt');
+is($ob->is_prompt(""), "", 'is_prompt("")');
+is($ob->lookfor, "", 'lookfor');
+
+($in, $out, $patt, $instead) = $ob->lastlook;
+is($in, "", 'input that MATCHED');
+is($out, "", 'input AFTER match');
+is($patt, "", 'PATTERN that matched');
+is($instead, "", 'input INSTEAD of match');
+is($ob->stty_echo(1), 1, 'stty_echo(1)');
 
 #### 228 - 290: Check Port Capabilities Match Changes
 
-is_ok ($ob->is_xon_char == 0x01);		# 228
-is_ok ($ob->is_xoff_char == 0x02);		# 229
+is($ob->is_xon_char, 0x01, 'is_xon_char');
+is($ob->is_xoff_char, 0x02, 'is_xoff_char');
 
 $pass = $ob->can_spec_char;			# generic port can't set
 if ($pass) {
-    is_ok ($ob->is_eof_char == 0x04);		# 230
-    is_ok ($ob->is_event_char == 0x03);		# 231
-    is_ok ($ob->is_error_char == 5);		# 232
+    is($ob->is_eof_char, 0x04, 'is_eof_char');
+    is($ob->is_event_char, 0x03, 'is_event_char');
+    is($ob->is_error_char, 5, 'is_error_char');
 }
 else {
-    is_ok ($ob->is_eof_char == 0);		# 230
-    is_ok ($ob->is_event_char == 0);		# 231
-    is_ok ($ob->is_error_char == 0);		# 232
+    is($ob->is_eof_char, 0, 'is_eof_char');
+    is($ob->is_event_char, 0, 'is_event_char');
+    is($ob->is_error_char, 0, 'is_error_char');
 }
-is_ok ($ob->is_baudrate == 1200);		# 233
+is($ob->is_baudrate, 1200, 'is_baudrate');
 
-is_ok ($ob->devicetype eq 'type');		# 234
-is_ok ($ob->hostname eq 'any');			# 235
-is_ok ($ob->hostaddr == 9000);			# 236
+is($ob->devicetype, 'type', 'devicetype');
+is($ob->hostname, 'any', 'hostname');
+is($ob->hostaddr, 9000, 'hostaddr');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
+is($ob->datatype, 'fixed', 'datatype');
+is($ob->cfg_param_1, 'p1', 'cfg_param_1');
+is($ob->cfg_param_2, 'p2', 'cfg_param_2');
+is($ob->cfg_param_3, 'p3', 'cfg_param_3');
 
-is_ok ($ob->datatype eq 'fixed');		# 237
-is_ok ($ob->cfg_param_1 eq 'p1');		# 238
-is_ok ($ob->cfg_param_2 eq 'p2');		# 239
-is_ok ($ob->cfg_param_3 eq 'p3');		# 240
-
-is_ok ($ob->is_databits == 7);			# 241
-is_ok ($ob->is_stopbits == 2);			# 242
-is_ok ($ob->is_handshake eq "xoff");		# 243
-is_ok ($ob->is_read_interval == 0x0);		# 244
-is_ok ($ob->is_read_const_time == 1000);	# 245
-is_ok ($ob->is_read_char_time == 50);		# 246
-is_ok ($ob->is_write_const_time == 2000);	# 247
-is_ok ($ob->is_write_char_time == 75);		# 248
+is($ob->is_databits, 7, 'is_databits');
+is($ob->is_stopbits, 2, 'is_stopbits');
+is($ob->is_handshake, "xoff", 'is_handshake');
+is($ob->is_read_interval, 0x0, 'is_read_interval');
+is($ob->is_read_const_time, 1000, 'is_read_const_time');
+is($ob->is_read_char_time, 50, 'is_read_char_time');
+is($ob->is_write_const_time, 2000, 'is_write_const_time');
+is($ob->is_write_char_time, 75, 'is_write_char_time');
 
 ($in, $out)= $ob->are_buffers;
-is_ok (8092 == $in);				# 249
-is_ok (1024 == $out);				# 250
-is_ok ($ob->alias eq "oddPort");		# 251
+is($in, 8092, 'are_buffers in');
+is($out, 1024,  'are_buffers out');
+is($ob->alias, "oddPort", 'alias');
 
 $pass = $ob->can_parity_enable;
 if ($pass) {
-    is_ok (scalar $ob->is_parity_enable);	# 252
+    # Windows bug, not fixed since NT4
+    ok(defined $ob->is_parity_enable(1), 'is_parity_enable ON');
 }
 else {
-    is_zero (scalar $ob->is_parity_enable);	# 252
+    is(scalar $ob->is_parity_enable, 0, 'is_parity_enable OFF');
 }
 
-is_ok ($ob->is_xoff_limit == 45);		# 253
-is_ok ($ob->is_xon_limit == 90);		# 254
+is($ob->is_xoff_limit, 45, 'is_xoff_limit');
+is($ob->is_xon_limit, 90, 'is_xon_limit');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
-
-is_zero ($ob->user_msg);			# 255
-is_zero ($ob->error_msg);			# 256
+is($ob->user_msg, 0, 'user_msg OFF');
+is($ob->error_msg, 0, 'error_msg OFF');
 
 @opts = $ob->are_match;
-is_ok ($#opts == 1);				# 257
-is_ok ($opts[0] eq "END");			# 258
-is_ok ($opts[1] eq "Bye");			# 259
+is($#opts, 1, 'are_match count');
+is($opts[0], "END", 'END');
+is($opts[1], "Bye", 'Bye');
 
-is_ok ($ob->stty_intr eq "a");			# 260
-is_ok ($ob->stty_quit eq "b");			# 261
-is_ok ($ob->stty_eof eq "c");			# 262
-is_ok ($ob->stty_eol eq "d");			# 263
-is_ok ($ob->stty_erase eq "e");			# 264
-is_ok ($ob->stty_kill eq "f");			# 265
+is($ob->stty_intr, "a", 'stty_intr');
+is($ob->stty_quit, "b", 'stty_quit');
+is($ob->stty_eof, "c", 'stty_eof');
+is($ob->stty_eol, "d", 'stty_eol');
+is($ob->stty_erase, "e", 'stty_erase');
+is($ob->stty_kill, "f", 'stty_kill');
 
-is_ok ($ob->is_stty_intr == 97);		# 266
-is_ok ($ob->is_stty_quit == 98);		# 267
-is_ok ($ob->is_stty_eof == 99);			# 268
+is($ob->is_stty_intr, 97, 'is_stty_intr');
+is($ob->is_stty_quit, 98, 'is_stty_quit');
+is($ob->is_stty_eof, 99, 'is_stty_eof');
 
-is_ok ($ob->is_stty_eol == 100);		# 269
-is_ok ($ob->is_stty_erase == 101);		# 270
-is_ok ($ob->is_stty_kill == 102);		# 271
+is($ob->is_stty_eol, 100, 'is_stty_eol');
+is($ob->is_stty_erase, 101, 'is_stty_erase');
+is($ob->is_stty_kill, 102, 'is_stty_kill');
 
-is_ok ($ob->stty_clear eq "g");			# 272
-is_ok ($ob->stty_bsdel eq "h");			# 273
+is($ob->stty_clear, "g", 'stty_clear');
+is($ob->stty_bsdel, "h", 'stty_bsdel');
 
-is_ok ($ob->stty_echo == 1);			# 274
-is_ok ($ob->stty_echoe == 0);			# 275
-is_ok ($ob->stty_echok == 0);			# 276
+is($ob->stty_echo, 1, 'stty_echo');
+is($ob->stty_echoe, 0, 'stty_echoe');
+is($ob->stty_echok, 0, 'stty_echok');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
+is($ob->stty_echonl, 1, 'stty_echonl');
+is($ob->stty_echoke, 0, 'stty_echoke');
+is($ob->stty_echoctl, 1, 'stty_echoctl');
 
-is_ok ($ob->stty_echonl == 1);			# 277
-is_ok ($ob->stty_echoke == 0);			# 278
-is_ok ($ob->stty_echoctl == 1);			# 279
-
-is_ok ($ob->stty_istrip == 1);			# 280
-is_ok ($ob->stty_icrnl == 1);			# 281
-is_ok ($ob->stty_ocrnl == 1);			# 282
-is_ok ($ob->stty_igncr == 1);			# 283
-is_ok ($ob->stty_inlcr == 1);			# 284
-is_ok ($ob->stty_onlcr == 0);			# 285
-is_ok ($ob->stty_opost == 1);			# 286
-is_ok ($ob->stty_isig == 1);			# 287
-is_ok ($ob->stty_icanon == 1);			# 288
-is_ok ($ob->is_parity eq "odd");		# 289
+is($ob->stty_istrip, 1, 'stty_istrip');
+is($ob->stty_icrnl, 1, 'stty_icrnl');
+is($ob->stty_ocrnl, 1, 'stty_ocrnl');
+is($ob->stty_igncr, 1, 'stty_igncr');
+is($ob->stty_inlcr, 1, 'stty_inlcr');
+is($ob->stty_onlcr, 0, 'stty_onlcr');
+is($ob->stty_opost, 1, 'stty_opost');
+is($ob->stty_isig, 1, 'stty_isig');
+is($ob->stty_icanon, 1, 'stty_icanon');
+is($ob->is_parity, "odd", 'is_parity');
 
 print "Restore all the parameters\n";
 
-is_ok ($ob->restart($cfgfile));			# 290
+ok($ob->restart ($cfgfile), "restart $cfgfile");
 
 #### 291 - 361: Check Port Capabilities Match Original
 
-is_ok ($ob->is_xoff_char == 0x13);		# 291
-is_ok ($ob->is_eof_char == 0);			# 292
-is_ok ($ob->is_event_char == 0);		# 293
-is_ok ($ob->is_error_char == 0);		# 294
-is_ok ($ob->is_baudrate == 9600);		# 295
-is_ok ($ob->is_parity eq "none");		# 296
-is_ok ($ob->is_databits == 8);			# 297
+is($ob->is_xoff_char, 0x13, 'is_xoff_char');
+is($ob->is_eof_char, 0, 'is_eof_char');
+is($ob->is_event_char, 0, 'is_event_char');
+is($ob->is_error_char, 0, 'is_error_char');
+is($ob->is_baudrate, 9600, 'is_baudrate');
+is($ob->is_parity, "none", 'is_parity');
+is($ob->is_databits, 8, 'is_databits');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
+is($ob->is_stopbits, 1, 'is_stopbits');
+is($ob->is_handshake, "none", 'is_handshake');
+is($ob->is_read_interval, 0xffffffff, 'is_read_interval');
+is($ob->is_read_const_time, 0, 'is_read_const_time');
 
-is_ok ($ob->is_stopbits == 1);			# 298
-is_ok ($ob->is_handshake eq "none");		# 299
-is_ok ($ob->is_read_interval == 0xffffffff);	# 300
-is_ok ($ob->is_read_const_time == 0);		# 301
-
-is_ok ($ob->is_read_char_time == 0);		# 302
-is_ok ($ob->is_write_const_time == 200);	# 303
-is_ok ($ob->is_write_char_time == 10);		# 304
+is($ob->is_read_char_time, 0, 'is_read_char_time');
+is($ob->is_write_const_time, 200, 'is_write_const_time');
+is($ob->is_write_char_time, 10, 'is_write_char_time');
 
 ($in, $out)= $ob->are_buffers;
-is_ok (4096 == $in);				# 305
-is_ok (4096 == $out);				# 306
+is($in, 4096, 'are_buffers in');
+is($out, 4096, 'are_buffers out');
 
-is_ok ($ob->alias eq "AltPort");		# 307
-is_ok ($ob->is_binary == 1);			# 308
-is_zero (scalar $ob->is_parity_enable);		# 309
-is_ok ($ob->is_xoff_limit == 200);		# 310
-is_ok ($ob->is_xon_limit == 100);		# 311
-is_ok ($ob->user_msg == 1);			# 312
-is_ok ($ob->error_msg == 1);			# 313
+is($ob->alias, "TestPort", 'alias');
+is($ob->is_binary, 1, 'is_binary');
+is(scalar $ob->is_parity_enable, 0, 'is_parity_enable OFF');
+is($ob->is_xoff_limit, 200, 'is_xoff_limit');
+is($ob->is_xon_limit, 100, 'is_xon_limit');
+is($ob->user_msg, 1, 'user_msg');
+is($ob->error_msg, 1, 'error_msg');
 
 @opts = $ob->are_match("\n");
-is_ok ($#opts == 0);				# 314
-is_ok ($opts[0] eq "\n");			# 315
-is_ok ($ob->lookclear == 1);			# 316
-is_ok ($ob->is_prompt eq "");			# 317
-is_ok ($ob->lookfor eq "");			# 318
-
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
+is($#opts, 0, 'single are_match');
+is($opts[0], "\n", 'linefeed');
+is($ob->lookclear, 1, 'lookclear');
+is($ob->is_prompt, "", 'is_prompt');
+is($ob->lookfor, "", 'lookfor');
 
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "");				# 319
-is_ok ($out eq "");				# 320
-is_ok ($patt eq "");				# 321
-is_ok ($instead eq "");				# 322
-is_ok ($ob->streamline eq "");			# 323
-is_ok ($ob->matchclear eq "");			# 324
+is($in, "", 'input that MATCHED');
+is($out, "", 'input AFTER match');
+is($patt, "", 'PATTERN that matched');
+is($instead, "", 'input INSTEAD of match');
+is($ob->streamline, "", 'streamline');
+is($ob->matchclear, "", 'matchclear');
 
-is_ok ($ob->stty_intr eq "\cC");		# 325
-is_ok ($ob->stty_quit eq "\cD");		# 326
-is_ok ($ob->stty_eof eq "\cZ");			# 327
-is_ok ($ob->stty_eol eq "\cJ");			# 328
-is_ok ($ob->stty_erase eq "\cH");		# 329
-is_ok ($ob->stty_kill eq "\cU");		# 330
-is_ok ($ob->stty_clear eq $cstring);		# 331
-is_ok ($ob->stty_bsdel eq "\cH \cH");		# 332
+is($ob->stty_intr, "\cC", 'stty_intr');
+is($ob->stty_quit, "\cD", 'stty_quit');
+is($ob->stty_eof, "\cZ", 'stty_eof');
+is($ob->stty_eol, "\cJ", 'stty_eol');
+is($ob->stty_erase, "\cH", 'stty_erase');
+is($ob->stty_kill, "\cU", 'stty_kill');
+is($ob->stty_clear, $cstring, 'stty_clear');
+is($ob->stty_bsdel, "\cH \cH", 'stty_bsdel');
 
-is_ok ($ob->is_stty_intr == 3);			# 333
-is_ok ($ob->is_stty_quit == 4);			# 334
-is_ok ($ob->is_stty_eof == 26);			# 335
-is_ok ($ob->is_stty_eol == 10);			# 336
-is_ok ($ob->is_stty_erase == 8);		# 337
-is_ok ($ob->is_stty_kill == 21);		# 338
+is($ob->is_stty_intr, 3, 'is_stty_intr');
+is($ob->is_stty_quit, 4, 'is_stty_quit');
+is($ob->is_stty_eof, 26, 'is_stty_eof');
+is($ob->is_stty_eol, 10, 'is_stty_eol');
+is($ob->is_stty_erase, 8, 'is_stty_erase');
+is($ob->is_stty_kill, 21, 'is_stty_kill');
 
-is_ok ($ob->stty_echo == 0);			# 339
-is_ok ($ob->stty_echoe == 1);			# 340
+is($ob->stty_echo, 0, 'stty_echo');
+is($ob->stty_echoe, 1, 'stty_echoe');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
+is($ob->stty_echok, 1, 'stty_echok');
+is($ob->stty_echonl, 0, 'stty_echonl');
+is($ob->stty_echoke, 1, 'stty_echoke');
+is($ob->stty_echoctl, 0, 'stty_echoctl');
+is($ob->stty_istrip, 0, 'stty_istrip');
 
-is_ok ($ob->stty_echok == 1);			# 341
-is_ok ($ob->stty_echonl == 0);			# 342
-is_ok ($ob->stty_echoke == 1);			# 343
-is_ok ($ob->stty_echoctl == 0);			# 344
-is_ok ($ob->stty_istrip == 0);			# 345
+is($ob->stty_icrnl, 0, 'stty_icrnl');
+is($ob->stty_ocrnl, 0, 'stty_ocrnl');
+is($ob->stty_igncr, 0, 'stty_igncr');
+is($ob->stty_inlcr, 0, 'stty_inlcr');
+is($ob->stty_onlcr, 1, 'stty_onlcr');
+is($ob->stty_opost, 0, 'stty_opost');
+is($ob->stty_isig, 0, 'stty_isig');
+is($ob->stty_icanon, 0, 'stty_icanon');
+is($ob->is_xon_char, 0x11, 'is_xon_char');
 
-is_ok ($ob->stty_icrnl == 0);			# 346
-is_ok ($ob->stty_ocrnl == 0);			# 347
-is_ok ($ob->stty_igncr == 0);			# 348
-is_ok ($ob->stty_inlcr == 0);			# 349
-is_ok ($ob->stty_onlcr == 1);			# 350
-is_ok ($ob->stty_opost == 0);			# 351
-is_ok ($ob->stty_isig == 0);			# 352
-is_ok ($ob->stty_icanon == 0);			# 353
-is_ok ($ob->is_xon_char == 0x11);		# 354
-
-is_zero ($ob->hostaddr);			# 355
-is_ok ($ob->datatype eq 'raw');			# 356
-is_ok ($ob->cfg_param_1 eq 'none');		# 357
-is_ok ($ob->cfg_param_2 eq 'none');		# 358
-is_ok ($ob->cfg_param_3 eq 'none');		# 359
-is_ok ($ob->devicetype eq 'none');		# 360
-is_ok ($ob->hostname eq 'localhost');		# 361
+is($ob->hostaddr, 0, 'hostaddr');
+is($ob->datatype, 'raw', 'datatype');
+is($ob->cfg_param_1, 'none', 'cfg_param_1');
+is($ob->cfg_param_2, 'none', 'cfg_param_2');
+is($ob->cfg_param_3, 'none', 'cfg_param_3');
+is($ob->devicetype, 'none', 'devicetype');
+is($ob->hostname, 'localhost', 'hostname');
 
 ## 362 - 372: Status
 
-is_ok (4 == scalar (@opts = $ob->is_status));	# 362
+ok(scalar $ob->purge_all, 'purge_all');
+$ob->reset_error;
+is(scalar (@opts = $ob->is_status), 4, 'is_status');
 
 # for an unconnected port, should be $in=0, $out=0, $blk=0, $err=0
 
 ($blk, $in, $out, $err)=@opts;
-is_ok (defined $blk);				# 363
-is_zero ($in);					# 364
-is_zero ($out);					# 365
-is_zero ($blk);					# 366
-if ($blk) { printf "status: blk=%lx\n", $blk; }
-is_zero ($err);					# 367
+is($blk, 0, 'blocking bits');
+is($in, 0, 'input count');
+is($out, 0, 'output count');
+is($err, 0, 'error bits');
 
 ($blk, $in, $out, $err)=$ob->is_status(0x150);	# test only
-is_ok ($err == 0x150);				# 368
-### printf "error: err=%lx\n", $err;
+is($err, 0x150, 'error_bits forced');
 
 ($blk, $in, $out, $err)=$ob->is_status(0x0f);	# test only
-is_ok ($err == 0x15f);				# 369
+is($err, 0x15f, 'error bits add');
 
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
-
-print "=== Force all Status Errors\n";
-
-($blk, $in, $out, $err)=$ob->status;
-is_ok ($err == 0x15f);				# 370
-
-is_ok ($ob->reset_error == 0x15f);		# 371
+is($ob->reset_error, 0x15f, 'reset_error');
 
 ($blk, $in, $out, $err)=$ob->is_status;
-is_zero ($err);					# 372
+is($err, 0, 'error bits');
+
+# A test to check $BUFFEROUT
+$tick=$ob->get_tick_count;
+is($ob->write($line), 180, 'write 180 characters');
+$tock=$ob->get_tick_count;
+
+$err=$tock - $tick;
+if ($err < 120) {
+	$BUFFEROUT = 1;	# USB and virtual ports can't test output timing
+}
+print "<185> elapsed time=$err\n";
 
 # 373 - 375: "Instant" return for read_interval=0xffffffff
 
-$tick=$ob->get_tick_count;
-($in, $in2) = $ob->read(10);
-$tock=$ob->get_tick_count;
+SKIP: {
+    skip "Can't rely on timing and status details", 86 if $BUFFEROUT;
 
-is_zero ($in);					# 373
-is_bad ($in2);					# 374
-$out=$tock - $tick;
-is_ok ($out < 100);				# 375
-print "<0> elapsed time=$out\n";
+    $tick=$ob->get_tick_count;
+    ($in, $in2) = $ob->read(10);
+    $tock=$ob->get_tick_count;
+
+    is($in, 0, 'character count');
+    is_bad ($in2, 'no input');
+    $out=$tock - $tick;
+    ok ($out < 100, 'instant return from read');
+    print "<0> elapsed time=$out\n";
 
 # 376 - 384: 1 Second Constant Timeout
 
-is_ok (2000 == $ob->is_read_const_time(2000));	# 376
-is_zero ($ob->is_read_interval(0));		# 377
-is_ok (100 == $ob->is_read_char_time(100));	# 378
-is_zero ($ob->is_read_const_time(0));		# 379
-is_zero ($ob->is_read_char_time(0));		# 380
-
-is_ok (0xffffffff == $ob->is_read_interval(0xffffffff));	# 381
-is_ok (1000 == $ob->is_write_const_time(1000));	# 382
-is_zero ($ob->is_write_char_time(0));		# 383
-is_ok ("rts" eq $ob->is_handshake("rts"));	# 384 ; so it blocks
-
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
+    is($ob->is_read_const_time(2000), 2000, 'is_read_const_time');
+    is($ob->is_read_interval(0), 0, 'is_read_interval');
+    is($ob->is_read_char_time(100), 100, 'is_read_char_time');
+    is($ob->is_read_const_time(0), 0, 'is_read_const_time');
+    is($ob->is_read_char_time(0), 0, 'is_read_char_time');
+    
+    is($ob->is_read_interval(0xffffffff), 0xffffffff, 'is_read_interval');
+    is($ob->is_write_const_time(1000), 1000, 'is_write_const_time');
+    is($ob->is_write_char_time(0), 0, 'is_write_char');
+    is($ob->is_handshake("rts"), 'rts', 'is_handshake("rts")');
 
 # 385 - 386
 
-$e="12345678901234567890";
+    $e="12345678901234567890";
 
-$tick=$ob->get_tick_count;
-is_zero ($ob->write($e));			# 385
-$tock=$ob->get_tick_count;
+    $tick=$ob->get_tick_count;
+    is($ob->write($e), 0, 'write');
+    $tock=$ob->get_tick_count;
 
-$out=$tock - $tick;
-is_bad (($out < 800) or ($out > 1300));		# 386
-print "<1000> elapsed time=$out\n";
+    $out=$tock - $tick;
+    is_bad (($out < 800) or ($out > 1300), 'write timeout');
+    print "<1000> elapsed time=$out\n";
 
 # 387 - 389: 2.5 Second Timeout Constant+Character
 
-is_ok (75 ==$ob->is_write_char_time(75));	# 387
+    is($ob->is_write_char_time(75), 75, 'is_write_char_time');
 
-$tick=$ob->get_tick_count;
-is_zero ($ob->write($e));			# 388
-$tock=$ob->get_tick_count;
+    $tick=$ob->get_tick_count;
+    is($ob->write($e), 0, 'write');
+    $tock=$ob->get_tick_count;
 
-$out=$tock - $tick;
-is_bad (($out < 2300) or ($out > 2900));	# 389
-print "<2500> elapsed time=$out\n";
-
+    $out=$tock - $tick;
+    is_bad (($out < 2300) or ($out > 2900), 'write_timeout');
+    print "<2500> elapsed time=$out\n";
 
 # 390 - 398: 1.5 Second Read Constant Timeout
 
-is_ok (1500 == $ob->is_read_const_time(1500));	# 390
-is_zero ($ob->is_read_interval(0));		# 291
-is_ok (scalar $ob->purge_all);			# 392
+    is($ob->is_read_const_time(1500), 1500, 'is_read_const_time');
+    is($ob->is_read_interval(0), 0, 'is_read_interval');
+    ok (scalar $ob->purge_all, 'purge_all');
 
-$tick=$ob->get_tick_count;
-$in = $ob->read_bg(10);
-$tock=$ob->get_tick_count;
+    $tick=$ob->get_tick_count;
+    $in = $ob->read_bg(10);
+    $tock=$ob->get_tick_count;
 
-is_zero ($in);					# 393
-$out=$tock - $tick;
-is_ok ($out < 100);				# 394
-print "<0> elapsed time=$out\n";
 
-($pass, $in, $in2) = $ob->read_done(0);
-$tock=$ob->get_tick_count;
+    $out=$tock - $tick;
+    is($in, 0, 'read_bg');
+    ok ($out < 100, 'background returns quickly');
+    print "<0> elapsed time=$out\n";
 
-is_zero ($pass);				# 395
-is_zero ($in);					# 396
-is_ok ($in2 eq "");				# 397
-$out=$tock - $tick;
-is_ok ($out < 100);				# 398
+    ($pass, $in, $in2) = $ob->read_done(0);
+    $tock=$ob->get_tick_count;
 
-if ($naptime) {
-    print "++++ page break\n";
+    is($pass, 0, 'read_done(0)');
+    is($in, 0, 'read_bg count');
+    is($in2, "", 'read_bg data');
+    $out=$tock - $tick;
+    ok ($out < 100, 'not blocked');	
+
+    is($ob->write_bg($e), 0, 'write_bg');
+    ($pass, $out) = $ob->write_done(0);
+    is($pass, 0, 'write_done(0)');
+    is($out, 0, 'write_bg count');
+
+    sleep 1;
+    ($pass, $in, $in2) = $ob->read_done(0);
+    is($pass, 0, 'read_done(0)');
+    ($pass, $out) = $ob->write_done(0);
+    is($pass, 0, 'write_done(0)');
+
+    ($blk, $in, $out, $err)=$ob->is_status;
+    is($in, 0, 'read char count');
+    is($out, 20, 'write char count');
+    is($blk, 1, 'blocking bits');
+    is($err, 0, 'error bits char count');
+
+    sleep 1;
+
+    ($pass, $in, $in2) = $ob->read_done(0);
+    is($pass, 1, 'read_done(0)');
+    is($in, 0, 'read_bg count');
+    is($in2, "", 'read_bg data');
+    $tock=$ob->get_tick_count;
+    $out=$tock - $tick;
+    is_bad (($out < 1800) or ($out > 2400), 'read_done timing');
+    print "<2000> elapsed time=$out\n";
+    ($pass, $out) = $ob->write_done(0);
+    is($pass, 0, 'write_done(0)');
+
+    sleep 1;
+    ($pass, $in, $in2) = $ob->read_done(0);	# double check ok?
+    is($pass, 1, 'read_done(0)');
+    is($in, 0, 'read_done count');
+    is($in2, "", 'read_done data');
+
+    sleep 1;
+    ($pass, $out) = $ob->write_done(0);
+    is($pass, 1, 'write_done(0)');
+    is($out, 0, 'write_done count');
+    $tock=$ob->get_tick_count;			# expect about 4 seconds
+    $out=$tock - $tick;
+    is_bad (($out < 3800) or ($out > 4400), 'write_done timing');
+    print "<4000> elapsed time=$out\n";
+
+    $tick=$ob->get_tick_count;			# new timebase
+    $in = $ob->read_bg(10);
+    is($in, 0, 'read_bg count');
+    ($pass, $in, $in2) = $ob->read_done(0);
+    is($pass, 0, 'read_done(0)');
+    is($in, 0, 'read_done count');
+    is($in2, "", 'read_done data');
+
+    sleep 1;
+    ($pass, $in, $in2) = $ob->read_done(0);
+    is($pass, 0, 'read_done(0)');
+    ## print "testing fail message:\n";
+    $in = $ob->read_bg(10);
+    is_bad (defined $in, 'already reading');
+
+    ($pass, $in, $in2) = $ob->read_done(1);
+    is($pass, 1, 'read_done(1)');
+    is($in, 0, 'read_done count');
+    is($in2, "", 'read_done data');
+    $tock=$ob->get_tick_count;			# expect 1.5 seconds
+    $out=$tock - $tick;
+    is_bad (($out < 1300) or ($out > 1800), 'read_done(1) timing');
+    print "<1500> elapsed time=$out\n";
+
+    $tick=$ob->get_tick_count;			# new timebase
+    $in = $ob->read_bg(10);
+    is($in, 0, 'read_bg count');
+    ($pass, $in, $in2) = $ob->read_done(0);
+    is($pass, 0, 'read_done(0)');
+    is($in, 0, 'read_done count');
+    is($in2, "", 'read_done data');
+
+    sleep 1;
+    ($pass, $in, $in2) = $ob->read_done(0);
+    is($pass, 0, 'read_done(0)');
+    ok(scalar $ob->purge_rx, 'purge_rx');
+    ($pass, $in, $in2) = $ob->read_done(1);
+    ok(scalar $ob->purge_rx, 'purge_rx');
+    if (Win32::IsWinNT()) {
+        is($pass, 0, 'read_done(1) after purge');
+    } else {
+        is($pass, 1, 'read_done(1) after purge');
+    }
+    is($in, 0, 'read_done count');
+    is($in2, "", 'read_done data');
+    $tock=$ob->get_tick_count;			# expect 1 second
+    $out=$tock - $tick;
+    is_bad (($out < 900) or ($out > 1200), 'purge_rx timing');
+    print "<1000> elapsed time=$out\n";
+#80
+    is($ob->write_bg($e), 0, 'write_bg');
+    ($pass, $out) = $ob->write_done(0);
+    is($pass, 0, 'write_done(0)');
+
+    sleep 1;
+    ($pass, $out) = $ob->write_done(0);
+    is($pass, 0, 'write_done(0)');
+    ok(scalar $ob->purge_tx, 'purge_tx');
+    ($pass, $out) = $ob->write_done(1);
+    ok(scalar $ob->purge_tx, 'purge_tx');
+    if (Win32::IsWinNT()) {
+        is($pass, 0, 'write_done(1)');
+    } else {
+        is($pass, 1, 'write_done(1)');
+    }
+    $tock=$ob->get_tick_count;			# expect 2 seconds
+    $out=$tock - $tick;
+    is_bad (($out < 1900) or ($out > 2200), 'write_done(1) timing');
+    print "<2000> elapsed time=$out\n";
+#87
+    $tick=$ob->get_tick_count;			# new timebase
+    $in = $ob->read_bg(10);
+    is($in, 0, 'read_bg count');
+    ($pass, $in, $in2) = $ob->read_done(0);
+    is($pass, 0, 'read_done(0)');
+    is($ob->write_bg($e), 0, 'write_bg');
+    ($pass, $out) = $ob->write_done(0);
+    is($pass, 0, 'write_done(0)');
+
+    sleep 1;
+    ($pass, $out) = $ob->write_done(0);
+    is($pass, 0, 'write_done(0)');
+
+    ($pass, $in, $in2) = $ob->read_done(1);
+    is($pass, 1, 'read_done(1)');
+    is($in, 0, 'read_done count');
+    is($in2, "", 'read_done data');
+    ($pass, $out) = $ob->write_done(0);
+    is($pass, 0, 'write_done(0)');
+    $tock=$ob->get_tick_count;			# expect 1.5 seconds
+    $out=$tock - $tick;
+    is_bad (($out < 1300) or ($out > 1800), 'write_done(1) timing');
+    print "<1500> elapsed time=$out\n";
+
+    ($pass, $out) = $ob->write_done(1);
+    is($pass, 1, 'write_done(1)');
+    $tock=$ob->get_tick_count;			# expect 2.5 seconds
+    $out=$tock - $tick;
+    is_bad (($out < 2300) or ($out > 2800), 'write_done(1) timing');
+    print "<2500> elapsed time=$out\n";
+#99
 }
 
-print "A Series of 1 Second Groups with Background I/O\n";
-
-is_zero ($ob->write_bg($e));			# 399
-($pass, $out) = $ob->write_done(0);
-is_zero ($pass);				# 400
-is_zero ($out);					# 401
-
-sleep 1;
-($pass, $in, $in2) = $ob->read_done(0);
-is_zero ($pass);				# 402
-($pass, $out) = $ob->write_done(0);
-is_zero ($pass);				# 403
-
-($blk, $in, $out, $err)=$ob->is_status;
-is_zero ($in);					# 404
-is_ok ($out == 20);				# 405
-is_ok ($blk == 1);				# 406
-is_zero ($err);					# 407
-
-sleep 1;
-($pass, $in, $in2) = $ob->read_done(0);
-is_ok ($pass);					# 408
-is_zero ($in);					# 409
-is_ok ($in2 eq "");				# 410
-$tock=$ob->get_tick_count;			# expect about 2 seconds
-$out=$tock - $tick;
-is_bad (($out < 1800) or ($out > 2400));	# 411
-print "<2000> elapsed time=$out\n";
-($pass, $out) = $ob->write_done(0);
-is_zero ($pass);				# 412
-
-sleep 1;
-($pass, $in, $in2) = $ob->read_done(0);		# double check ok?
-is_ok ($pass);					# 413
-is_zero ($in);					# 414
-is_ok ($in2 eq "");				# 415
-
-sleep 1;
-($pass, $out) = $ob->write_done(0);
-is_ok ($pass);					# 416
-is_zero ($out);					# 417
-$tock=$ob->get_tick_count;			# expect about 4 seconds
-$out=$tock - $tick;
-is_bad (($out < 3800) or ($out > 4400));	# 418
-print "<4000> elapsed time=$out\n";
-
-$tick=$ob->get_tick_count;			# new timebase
-$in = $ob->read_bg(10);
-is_zero ($in);					# 419
-($pass, $in, $in2) = $ob->read_done(0);
-
-is_zero ($pass);				# 420 
-is_zero ($in);					# 421
-is_ok ($in2 eq "");				# 422
-
-sleep 1;
-($pass, $in, $in2) = $ob->read_done(0);
-is_zero ($pass);				# 423
-## print "testing fail message:\n";
-$in = $ob->read_bg(10);
-is_bad (defined $in);				# 424 - already reading
-
-($pass, $in, $in2) = $ob->read_done(1);
-is_ok ($pass);					# 425
-is_zero ($in);					# 426 
-is_ok ($in2 eq "");				# 427
-$tock=$ob->get_tick_count;			# expect 1.5 seconds
-$out=$tock - $tick;
-is_bad (($out < 1300) or ($out > 1800));	# 427
-print "<1500> elapsed time=$out\n";
-
-$tick=$ob->get_tick_count;			# new timebase
-$in = $ob->read_bg(10);
-is_zero ($in);					# 429
-($pass, $in, $in2) = $ob->read_done(0);
-is_zero ($pass);				# 430
-is_zero ($in);					# 431
-is_ok ($in2 eq "");				# 432
-
-sleep 1;
-($pass, $in, $in2) = $ob->read_done(0);
-is_zero ($pass);				# 433 
-is_ok (scalar $ob->purge_rx);			# 434 
-($pass, $in, $in2) = $ob->read_done(1);
-is_ok (scalar $ob->purge_rx);			# 437 
-if (Win32::IsWinNT()) {
-    is_zero ($pass);				# 435 
-}
-else {
-    is_ok ($pass);				# 436 
-}
-is_zero ($in);					# 437 
-is_ok ($in2 eq "");				# 438
-$tock=$ob->get_tick_count;			# expect 1 second
-$out=$tock - $tick;
-is_bad (($out < 900) or ($out > 1200));		# 439
-print "<1000> elapsed time=$out\n";
-
-is_zero ($ob->write_bg($e));			# 440
-($pass, $out) = $ob->write_done(0);
-is_zero ($pass);				# 441
-
-sleep 1;
-($pass, $out) = $ob->write_done(0);
-is_zero ($pass);				# 442
-is_ok (scalar $ob->purge_tx);			# 443 
-($pass, $out) = $ob->write_done(1);
-is_ok (scalar $ob->purge_tx);			# 444 
-if (Win32::IsWinNT()) {
-    is_zero ($pass);				# 445 
-}
-else {
-    is_ok ($pass);				# 445 
-}
-$tock=$ob->get_tick_count;			# expect 2 seconds
-$out=$tock - $tick;
-is_bad (($out < 1900) or ($out > 2200));	# 446
-print "<2000> elapsed time=$out\n";
-
-$tick=$ob->get_tick_count;			# new timebase
-$in = $ob->read_bg(10);
-is_zero ($in);					# 447
-($pass, $in, $in2) = $ob->read_done(0);
-is_zero ($pass);				# 448
-is_zero ($ob->write_bg($e));			# 449
-($pass, $out) = $ob->write_done(0);
-is_zero ($pass);				# 450
-
-sleep 1;
-($pass, $out) = $ob->write_done(0);
-is_zero ($pass);				# 451
-
-($pass, $in, $in2) = $ob->read_done(1);
-is_ok ($pass);					# 452 
-is_zero ($in);					# 453
-is_ok ($in2 eq "");				# 454
-($pass, $out) = $ob->write_done(0);
-is_zero ($pass);				# 455
-$tock=$ob->get_tick_count;			# expect 1.5 seconds
-$out=$tock - $tick;
-is_bad (($out < 1300) or ($out > 1800));	# 456
-print "<1500> elapsed time=$out\n";
-
-($pass, $out) = $ob->write_done(1);
-is_ok ($pass);					# 457
-$tock=$ob->get_tick_count;			# expect 2.5 seconds
-$out=$tock - $tick;
-is_bad (($out < 2300) or ($out > 2800));	# 458
-print "<2500> elapsed time=$out\n";
-
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
-
-is_ok(1 == $ob->user_msg);			# 459
-is_zero(scalar $ob->user_msg(0));		# 460
-is_ok(1 == $ob->user_msg(1));			# 461
-is_ok(1 == $ob->error_msg);			# 462
-is_zero(scalar $ob->error_msg(0));		# 463
-is_ok(1 == $ob->error_msg(1));			# 464
+is($ob->user_msg, 1, 'user_msg');
+is($ob->user_msg(0), 0, 'user_msg(0)');
+is($ob->user_msg(1), 1, 'user_msg(1)');
+is($ob->error_msg, 1, 'error_msg');
+is($ob->error_msg(0), 0, 'error_msg(0)');
+is($ob->error_msg(1), 1, 'error_msg(1)');
 
 # 465 - 516 Test and Normal "lookclear"
 
-is_ok ($ob->stty_echo(0) == 0);			# 465
-is_ok ($ob->lookclear("Before\nAfter") == 1);	# 466
-is_ok ($ob->lookfor eq "Before");		# 467
+$ob->reset_error;
+is($ob->stty_echo(0), 0, 'xon_char');
+is ($ob->lookclear("Before\nAfter"), 1, 'lookclear load');
+is ($ob->lookfor, "Before", 'lookfor match in middle');
 
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "\n");				# 468
-is_ok ($out eq "After");			# 469
-is_ok ($patt eq "\n");				# 470
-is_ok ($instead eq "");				# 471
+is ($in, "\n", 'MATCHED');
+is ($out, "After", 'AFTER');
+is ($patt, "\n", 'PATTERN');
+is ($instead, "", 'INSTEAD');
 
-is_ok ($ob->lookfor eq "");			# 472
+is ($ob->lookfor, "", 'lookfor no match');
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "");				# 473
-is_ok ($patt eq "");				# 474
-is_ok ($instead eq "After");			# 475
+is ($in, "", 'no MATCH');
+is ($patt, "", 'no PATTERN');
+is ($instead, "After", 'found AFTER');
 
 @opts = $ob->are_match ("B*e","ab..ef","-re","12..56","END");
-is_ok ($#opts == 4);				# 476
-is_ok ($opts[2] eq "-re");			# 477
-is_ok ($ob->lookclear("Good Bye, the END, Hello") == 1);	# 478
-is_ok ($ob->lookfor eq "Good Bye, the ");	# 479
-
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
+is ($#opts, 4, 're matches');
+is ($opts[2], "-re", 're delimiter');
+is ($ob->lookclear("Good Bye, the END, Hello"), 1, 'lookclear load');
+is ($ob->lookfor, "Good Bye, the ", 'lookfor BEFORE');
 
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "END");				# 480
-is_ok ($out eq ", Hello");			# 481
-is_ok ($patt eq "END");				# 482
-is_ok ($instead eq "");				# 483
+is ($in, "END", 'MATCHED');
+is ($out, ", Hello", 'AFTER');
+is ($patt, "END", 'PATTERN');
+is ($instead, "", 'no INSTEAD');
 
-is_ok ($ob->lookclear("Good Bye, the END, Hello") == 1);	# 484
-is_ok ($ob->streamline eq "Good Bye, the ");	# 485
-
-($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "END");				# 486
-is_ok ($out eq ", Hello");			# 487
-is_ok ($patt eq "END");				# 488
-is_ok ($instead eq "");				# 489
-
-is_ok ($ob->lookclear("Good B*e, abcdef, 123456") == 1);	# 490
-is_ok ($ob->lookfor eq "Good ");		# 491
+is ($ob->lookclear("Good Bye, the END, Hello"), 1, 'lookclear load');
+is ($ob->streamline, "Good Bye, the ", 'streamline BEFORE');
 
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "B*e");				# 492
-is_ok ($out eq ", abcdef, 123456");		# 493
-is_ok ($patt eq "B*e");				# 494
-is_ok ($instead eq "");				# 495
+is ($in, "END", 'MATCHED');
+is ($out, ", Hello", 'AFTER');
+is ($patt, "END", 'PATTERN');
+is ($instead, "", 'no INSTEAD');
 
-is_ok ($ob->lookfor eq ", abcdef, ");		# 496
-
-if ($naptime) {
-    print "++++ page break\n";
-    sleep $naptime;
-}
+is ($ob->lookclear("Good B*e, abcdef, 123456"), 1, 'lookclear load for re');
+is ($ob->lookfor, "Good ", 'lookfor');
 
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "123456");			# 497
-is_ok ($out eq "");				# 498
-is_ok ($patt eq "12..56");			# 499
-is_ok ($instead eq "");				# 500
+is ($in, "B*e", 'wildcard MATCHED');
+is ($out, ", abcdef, 123456", 'AFTER');
+is ($patt, "B*e", 'PATTERN');
+is ($instead, "", 'no INSTEAD');
 
-is_ok ($ob->lookclear("Good B*e, abcdef, 123456") == 1);	# 501
-is_ok ($ob->streamline eq "Good ");		# 502
-
-($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "B*e");				# 503
-is_ok ($out eq ", abcdef, 123456");		# 504
-is_ok ($patt eq "B*e");				# 505
-is_ok ($instead eq "");				# 506
-
-is_ok ($ob->streamline eq ", abcdef, ");	# 507
+is ($ob->lookfor, ", abcdef, ", 'lookfor');
 
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "123456");			# 508
-is_ok ($out eq "");				# 509
-is_ok ($patt eq "12..56");			# 510
-is_ok ($instead eq "");				# 511
+is ($in, "123456", 'MATCHED');
+is ($out, "", 'nothing AFTER');
+is ($patt, "12..56", 'PATTERN is re');
+is ($instead, "", 'nothing INSTEAD');
+
+is ($ob->lookclear("Good B*e, abcdef, 123456"), 1, 'lookclear load for re');
+is ($ob->streamline, "Good ", 'streamline');
+
+($in, $out, $patt, $instead) = $ob->lastlook;
+is ($in, "B*e", 'wildcard MATCHED');
+is ($out, ", abcdef, 123456", 'AFTER');
+is ($patt, "B*e", 'PATTERN');
+is ($instead, "", 'no INSTEAD');
+
+is ($ob->streamline, ", abcdef, ", 'streamline');
+
+($in, $out, $patt, $instead) = $ob->lastlook;
+is ($in, "123456", 'MATCHED');
+is ($out, "", 'nothing AFTER');
+is ($patt, "12..56", 'PATTERN is re');
 
 @necessary_param = Win32::SerialPort->set_test_mode_active(0);
 
-is_bad ($ob->lookclear("Good\nBye"));		# 512
-is_ok ($ob->lookfor eq "");			# 513
+is_bad ($in = $ob->lookclear("Good\nBye"), 'lookclear no testmode');
+is ($ob->lookfor, "", 'lookfor no match');
 ($in, $out, $patt, $instead) = $ob->lastlook;
-is_ok ($in eq "");				# 514
-is_ok ($out eq "");				# 515
-is_ok ($patt eq "");				# 516
+is ($in, "", 'no MATCH');
+is ($out, "", 'no AFTER');
+is ($patt, "", 'no PATTERN');
 
 undef $ob;
