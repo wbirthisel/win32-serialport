@@ -566,7 +566,7 @@ ok ($ob = tie(*PORT,'Win32::SerialPort', $cfgfile), 'tie');
 die unless ($ob);    # next tests would die at runtime
 
 SKIP: {
-    skip "Tied timing and output separators", 32 if $BUFFEROUT;
+    skip "Tied timing and output separators", 33 if $BUFFEROUT;
 
     # tie to PRINT method
     $tick=$ob->get_tick_count;
@@ -595,7 +595,7 @@ SKIP: {
     $err=$tock - $tick;
     is_bad (($err < 480) or ($err > 540));
     print "<500> elapsed time=$err\n";
-#6
+#7
     ## 201 - 215: Record and Field Separators
 
     my $r = "I am the very model of an output record separator";	## =49
@@ -635,7 +635,7 @@ SKIP: {
     $err=$tock - $tick;
     is_bad (($err < 310) or ($err > 360), 'write timing');
     print "<325> elapsed time=$err\n";
-#16
+#17
     is($ob->output_record_separator, $r, 'alt record separator');
     is($ob->output_field_separator, $f, 'alt field separator');
     $, = $ff;
@@ -678,7 +678,7 @@ SKIP: {
     $err=$tock - $tick;
     is_bad (($err < 460) or ($err > 510), 'write timing');
     print "<475> elapsed time=$err\n";
-#26
+#27
     is($ob->output_field_separator($f), "", 'output_field_separator');
     is($ob->output_record_separator($r), "", 'output_record_separator');
 
