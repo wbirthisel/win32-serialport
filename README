@@ -1,5 +1,5 @@
 Win32::SerialPort and Win32API::CommPort
-VERSION=0.19, 4 November 1999
+VERSION=0.20, 1 April 2010
 
 Hello Serial Port users:
 
@@ -7,95 +7,29 @@ If you are not running Windows, you want the Device::SerialPort module
 instead of this one. It has a compatible user interface and runs on
 Operating Systems that fully support POSIX.pm. Available from your
 favorite CPAN site. Since someone asked, MS-DOS does NOT support POSIX.pm.
+But OSX does.
+
+It has been over 10 years since the last release. No functions are
+considered "experimental" anymore. And this release is mostly test and
+installer improvements along with a few bug fixes. There is now a module
+Test::Device::SerialPort on CPAN that emulates these modules (and their
+POSIX cousins) for testing application code without hardware. While the
+modules themselves have supported USB ports, COM10 and above, VirtualBox,
+and embedded ports, the tests did not up to now.
 
 These modules are intended for Win32 ports of Perl without requiring
 a compiler or using XS. In every case, compatibility has been selected
 over performance. Since everything is (convoluted but still pure) perl,
 you can fix flaws and change limits if required. But please file a bug
-report if you do. I have tested with the ActiveState (3xx and 5xx) and
-Core (GS 5.004_02) distributions. But these modules should work on any
-Win32 version that supports Aldo Calpini's Win32::API.
+report if you do. I have tested with the ActiveState (5.6.x, 5.8.x, 5.10.x)
+and Strawberry (5.8.x and 5.10.x) distributions. But these modules should
+work on any Win32 version that supports Aldo Calpini's Win32::API.
+While the modules have worked on earlier perl versions, I no longer have
+any way to test them for compatibility.
 
-This is the fifth production release. All planned features are now
-implemented. A few are still experimental - see the documentation.
-I suspect there are still bugs - but I only know of one: "is_parity_enable"
-sometimes fails on NT (test4.t #86). I have not been able to duplicate this
-bug on my system. If you do get this test to fail, please let me know if
-you can isolate it to some line in the module source code. If you see any
-place where the code does not match the documentation, consider it a bug
-and please report it. Except for those items highlighted as "experimental"
-in the documentation (tied FileHandles, "lookfor" details, and stty
-emulation), the modules have been very stable since Nov 8, 1998 (0.12).
-
-UPGRADE GOTCHAS:
-
-1. The test programs and many of the demo programs have added features
-   since the last beta release. The new ones won't work on earlier
-   versions (0.14 and below).
-
-2. The configuration file used by start, restart and tie must be
-   regenerated (by save) for Version 0.15 and above. Sorry about that.
-
-3. The defaults for the stty_xxx parameters have been changed to no
-   processing (raw data). In earlier versions, the default matched
-   the setup one would use with a dumb terminal (echo on, convert
-   \r to \n on input and \n to \r\n on output).
-
-4. The matchclear method was added to fix a bug with lookfor and
-   matches at the beginning of the input (usually "empty" lines).
-   This may change the return value in certain cases.
-
-5. In many cases, streamline is a better choice than lookfor when
-   receiving large quantities of data.
-
-COMPATIBILITY NOTES:
-
-1. Users of ActiveState Build 3xx must use "Inst_3xx.PL" instead of
-   "Install.PL". Version 0.14 improves the automatic test suite support
-   in "Makefile.PL" (so it resembles Test::Harness without the summary
-   report). Results will be written to "test.txt".
-
-2. The Tied FileHandle support works fully on 5.005, mostly on 5.004,
-   and essentially NOT on 5.003. This is due to the level of support
-   in the underlying Perl - not to the module implementation.
-
-3. The internals of "lookfor" have been extensively changed. Most of
-   the simple demos did not break - but users should verify that
-   existing applications which use this feature act the same. If any
-   user took advantage of the (previously undocumented) support for
-   regular expressions, they will have to revise their code to the
-   new (less ambiguous) syntax borrowed from Expect.pm. Timing and
-   efficiency should be improved. Most changes were in Version 0.15.
-
-4. Version 0.16 eliminated the "dummy (0, 1) list" returned by most
-   of the binary methods in case they were called in list context.
-   I do not think that feature was used outside the test suite.
-
-5. The documentation on read_interval and read_const_time has been
-   improved based on testing. The functions have not changed - only
-   the description of how they work (and the new recommendations).
-
-6. A "syswrite" from a tied FileHandle now checks stty_opost and
-   performs the output conversions. You can still use "write" to
-   generate "raw" output even with stty_opost==1.
-
-These modules use Aldo Calpini's Win32::API module extensively. It is
-available at:
-
-    http://www.divinf.it/dada/perl/Win32API-0_011.zip
-
-for AS build 3xx and GS 5.004_02. For AS build 5xx, it is available as
-the package Win32-API using PPM on the ActiveState repository.
-Get it, install it, and test it BEFORE trying Win32API::SerialPort. The
-"-w" complaints (xxx used only once) under AS 3xx are normal. CommPort
-now fixes them - but other modules probably do not.
-
-See the NOTES and KNOWN LIMITATIONS in the SerialPort documentation. The
-".pod" is embedded in the ".pm". The comments on "-w" and "use strict"
-are especially relevant when you start calling this module from your own
-code. This module has been tested on Win95 with AS Builds 315, 500, 509 and
-the GS binary 5.004_02. Thanks to Ken White for testing on NT. Also thanks
-to the others who have contributed comments and suggestions.
+This is the sixth production release. All planned features are now
+implemented.  If you see any place where the code does not match the
+documentation, consider it a bug and please report it.
 
 FILES:
 
@@ -129,15 +63,15 @@ FILES:
     html/Win32API		- install directory
     html/Win32API/CommPort.html	- documentation
 
-    Altport.pm		- stub for inheritance test
     t			- test directory
+    t/Altport.pm	- stub for inheritance test
     t/test1.t		- RUN ME FIRST, tests and creates configuration
     t/test2.t		- tests restarting_a_configuration and timeouts
     t/test3.t		- Inheritance and export version of test1.t
     t/test4.t		- Inheritance version of test2.t and "restart"
     t/test5.t		- tests to optional exports from CommPort
     t/test6.t		- stty tests
-    t/test7.t		- tied FileHandle tests 5.004+ (was test6.t)
+    t/test7.t		- tied FileHandle tests
 
 This is a genuine production release. You can complain if I don't
 maintain compatibility from this point forward. The experimental
@@ -145,34 +79,38 @@ items might change a bit - but I'll try to avoid breaking any code.
 
 PRE-INSTALL and TEST:
 
-Run 'perl Makefile.PL' first with nothing connected to "COM1". This
-will run the tests automatically. You can specify a diferent port to
-test with 'perl Makefile.PL PORT'. With 5.004+, the Benchmark routines
-are used to generate reports. The test suite covers most of the module
-methods and leaves the port set for 9600 baud, 1 stop, 8 data, no parity,
-no handshaking, and other defaults. At various points in the testing, it
-expects unconnected CTS and DTR lines. The final configuration is saved
-as COM1_test.cfg in this directory.
+Run 'perl Makefile.PL' first with nothing connected to "COM1". You can
+specify a diferent port to test with 'perl Makefile.PL TESTPORT=PORT'.
+I recommend you use a "traditional" hard-wired port for testing if
+available. Several tests are skipped for USB and other specialized ports.
+
+For those with make (e.g. Strawberry Perl), the normal mantra applies:
+	perl Makefile.PL TESTPORT=port
+	make
+	make test
+	make install
+
+Makefile.PL also generates two scripts for those who don't have a version
+of 'make' (e.g. nmake, dmake):
+	perl nomake_test
+	perl nomake_install
+
+Test::More and related routines are used to generate reports. The test
+suite covers most of the module methods and leaves the port set for 9600
+baud, 1 stop, 8 data, no parity, no handshaking, and other defaults. At
+various points in the testing, it expects unconnected CTS and DTR lines.
+The final configuration is saved by test1.t as port_test.cfg in the
+current directory (e.g COM1_test.cfg).
+
+The pod2html output is stored in the html directory. Some perl versions
+support automatically installing html and others do not.
 
 Tests may also be run individually by typing:
-	'perl test?.t Page_Delay [COMx]'
-
-With no delay, the tests execute too rapidly to follow from an MS-DOS
-command line. Delay may be set from 0 to 5 seconds.
+	'perl test?.t [COMx]'
 
 All tests are expected to pass - I would be very interested in hearing
 about failures ("not ok"). These tests should be run from a command
 line (DOS box).
-
-INSTALLATION:
-
-1. For perl versions 5.004 and above, run 'perl Install.PL". That's it!
-
-2. For ActiveState build 3xx, run 'perl Inst_3xx.PL'. Since html docs
-   were not installed by default on build 3xx, I don't install them.
-   You can manually copy them from the html subdirectory if you want.
-
-3. Run 'perl options.plx'. It should run without errors.
 
 DEMO PROGRAMS:
 
@@ -232,24 +170,21 @@ of the Unix/POSIX function of the same name. It's line noise unless
 you know Unix.
 
 The Perl Journal #13 included an article on Controlling a Modem with
-Win32::SerialPort. Examples from the article and additional demos can be
-found on the website below.
+Win32::SerialPort. Perl Journal #16 showed how to work with the X10
+series of home automation modules (ControlX10::).
 
 Please tell me what does and what doesn't work. The module has proven
 to be pretty robust. But I can't test all possible configurations.
 Don't trust it for anything important without complete testing.
 
-And watch for updates at:
+Available on CPAN under Author BBIRTH or on gitHub:
 
-%%%% http://members.aol.com/Bbirthisel/alpha.html
-
-or CPAN under authors/id/B/BB/BBIRTH or
-              Win32::SerialPort and Win32API::CommPort
+	http://github.com/wbirthisel/win32-serialport
 
 Thanks,
 
 -bill
 
-Copyright (C) 1999, Bill Birthisel. All rights reserved. This module is
+Copyright (C) 2010, Bill Birthisel. All rights reserved. This module is
 free software; you can redistribute it and/or modify it under the same
 terms as Perl itself.

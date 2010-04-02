@@ -165,3 +165,9 @@ Revision history for Perl extension Win32API::SerialPort.
 	- updates to test1.t, test3.t, and new demo9.plx
 	- move demos to eg directory
 
+0.20  Thu April 1 11:05:12 2010
+	- extensive rewrite to all tests to support modern perls and
+	  non-traditional ports
+	- automatically support COM10 and above
+	- Makefile.PL changes for compatibility with CPAN.pm and make
+
