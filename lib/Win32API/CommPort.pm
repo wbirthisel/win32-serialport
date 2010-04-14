@@ -50,7 +50,7 @@ our $_ResetEvent = Win32::API->new("kernel32", "ResetEvent", [N], I);
 
 use strict;
 
-our $VERSION = '0.20';
+our $VERSION = '0.21';
 our $RBUF_Size = 4096;
 
 require Exporter;

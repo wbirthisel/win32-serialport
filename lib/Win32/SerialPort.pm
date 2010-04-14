@@ -8,7 +8,7 @@ use Win32API::CommPort qw( :STAT :PARAM 0.20 );
 
 use Carp;
 
-our $VERSION = '0.20';
+our $VERSION = '0.21';
 
 require Exporter;
 

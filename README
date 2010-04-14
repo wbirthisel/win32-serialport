@@ -1,5 +1,6 @@
 Win32::SerialPort and Win32API::CommPort
 VERSION=0.20, 1 April 2010
+VERSION=0.21, 14 April 2010 (Makefile.PL improvements)
 
 Hello Serial Port users:
 

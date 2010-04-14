@@ -171,3 +171,5 @@ Revision history for Perl extension Win32API::SerialPort.
 	- automatically support COM10 and above
 	- Makefile.PL changes for compatibility with CPAN.pm and make
 
+0.21  Thu April 14 17:48:00 2010
+	- Makefile.PL changes to work with CPAN testers (invalid failures)

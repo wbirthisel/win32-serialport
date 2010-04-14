@@ -3,7 +3,10 @@ use strict;
 use warnings;
 use ExtUtils::MakeMaker;
 
-my $version = "0.20";	# for nomake versions
+# named Win32:: for a good reason. Recommendation from FAQ
+die "No support for OS\n" unless ($^O eq 'MSWin32');
+
+my $version = "0.21";	# for nomake versions
 
 my @SERIALS;
 
@@ -26,6 +29,14 @@ my $file = "COM1";
 if (@SERIALS) {
     # only first one is relevant
     $file = shift @SERIALS;
+}
+# confirm a test device seems to exist (presumes passed Win32 test above)
+# tested with cmd and bash shells
+if (system('echo', 'test', '>', $file)) {
+	warn "Device $file does not appear to exist. Testing impossible\n";
+	exit (0);
+} else {
+	warn "found result=$?, file=$file\n";
 }
 
 print <<COMMENTS;
@@ -67,7 +78,7 @@ close $default;
 $dfile = "nomake_test";
 unlink $dfile;
 print "Creating new $dfile\n";
-open my $default, '>', $dfile or die "Can't create $dfile: $!\n";
+open $default, '>', $dfile or die "Can't create $dfile: $!\n";
 
 print {$default} <<"TEST4";
 # Created by Makefile.PL
@@ -88,7 +99,7 @@ close $default;
 $dfile = "nomake_install";
 unlink $dfile;
 print "Creating new $dfile\n";
-open my $default, '>', $dfile or die "Can't create $dfile: $!\n";
+open $default, '>', $dfile or die "Can't create $dfile: $!\n";
 
 print {$default} <<"INST4";
 # Created by Makefile.PL
@@ -140,9 +151,10 @@ close $default;
 my %mm_args=(
     'NAME'          => 'Win32::SerialPort',
     'VERSION_FROM' => 'lib/Win32/SerialPort.pm', # finds $VERSION
-    'PREREQ_PM'     =>	{
-						'Test::More' => 0,
-						}, # e.g., Module::Name => 1.1
+    'PREREQ_PM'     =>	{ 'Test::More' => 0,
+			  'Win32::API' => 0,
+			  'Win32' => 0
+			}, # e.g., Module::Name => 1.1
     'ABSTRACT_FROM' => 'lib/Win32/SerialPort.pm', # retrieve abstract from module
     'AUTHOR'        => 'Bill Birthisel <wcbirthisel@alum.mit.edu>',
     'LIBS'          => [''], # e.g., '-lm'
