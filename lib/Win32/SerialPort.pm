@@ -1543,8 +1543,9 @@ sub input {
     return unless (@_ == 1);
     my $self = shift;
     my $result = "";
-    if (nocarp && $self->{"_T_INPUT"}) {
-	$result = $self->{"_T_INPUT"};
+    # some USB ports can generate config data (that we want to ignore)
+    if (nocarp) {	# only relevant for test mode
+	$result .= $self->{"_T_INPUT"};
 	$self->{"_T_INPUT"} = "";
 	return $result;
     }

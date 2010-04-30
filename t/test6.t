@@ -12,9 +12,6 @@ else {
 }
 cmp_ok($Win32::SerialPort::VERSION, '>=', 0.20, 'VERSION check');
 
-# USB and virtual ports can't test output timing, first fail will set this
-my $BUFFEROUT=0;
-
 use AltPort qw( :STAT 0.20 );
 
 use strict;

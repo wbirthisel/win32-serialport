@@ -1,11 +1,24 @@
-# http://module-build.sourceforge.net/META-spec.html
-#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
-name:         Win32-SerialPort
-version:      0.20
-version_from: lib/Win32/SerialPort.pm
-installdirs:  site
+--- #YAML:1.0
+name:               Win32-SerialPort
+version:            0.21
+abstract:           User interface to Win32 Serial API calls
+author:
+    - Bill Birthisel <wcbirthisel@alum.mit.edu>
+license:            Perl
+distribution_type:  module
+configure_requires:
+    ExtUtils::MakeMaker:  0
+build_requires:
+    ExtUtils::MakeMaker:  0
 requires:
-    Test::More:                    0
-
-distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.30_01
+    Test::More:  0
+    Win32:       0
+    Win32::API:  0
+no_index:
+    directory:
+        - t
+        - inc
+generated_by:       ExtUtils::MakeMaker version 6.55_02
+meta-spec:
+    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
+    version:  1.4

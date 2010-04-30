@@ -375,10 +375,10 @@ is(scalar @opts, 4, 'status');
 ($blk, $in, $out, $err)=@opts;
 # warn "WCB status: $blk, $in, $out, $err\n";
 
-ok(defined $blk, 'blocking bits');
-is($in, 0, 'input bytes');
-is($out, 0, 'output bytes');
-is($err, 0, 'error bytes');
+ok(defined $blk, 'blocking byte');
+ok(defined $in, 'input count');
+ok(defined $out, 'output count');
+ok(defined $err, 'error byte');
 
 ## xxx - xxx: Optional Messages
 

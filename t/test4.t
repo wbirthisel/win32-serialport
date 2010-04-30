@@ -8,7 +8,7 @@ if ($@) {
     plan skip_all => 'No serial port selected for use with testing';
 }
 else {
-    plan tests => 517;
+    plan tests => 518;
 }
 cmp_ok($Win32::SerialPort::VERSION, '>=', 0.20, 'VERSION check');
 
@@ -589,42 +589,54 @@ is($ob->hostname, 'localhost', 'hostname');
 
 ok(scalar $ob->purge_all, 'purge_all');
 $ob->reset_error;
-is(scalar (@opts = $ob->is_status), 4, 'is_status');
+
+is(scalar (@opts = $ob->is_status), 4, 'is_status array');
 
 # for an unconnected port, should be $in=0, $out=0, $blk=0, $err=0
-
 ($blk, $in, $out, $err)=@opts;
-is($blk, 0, 'blocking bits');
-is($in, 0, 'input count');
-is($out, 0, 'output count');
-is($err, 0, 'error bits');
-
-($blk, $in, $out, $err)=$ob->is_status(0x150);	# test only
-is($err, 0x150, 'error_bits forced');
-
-($blk, $in, $out, $err)=$ob->is_status(0x0f);	# test only
-is($err, 0x15f, 'error bits add');
-
-is($ob->reset_error, 0x15f, 'reset_error');
-
-($blk, $in, $out, $err)=$ob->is_status;
-is($err, 0, 'error bits');
 
 # A test to check $BUFFEROUT
 $tick=$ob->get_tick_count;
 is($ob->write($line), 180, 'write 180 characters');
 $tock=$ob->get_tick_count;
 
-$err=$tock - $tick;
-if ($err < 120) {
+my $delay=$tock - $tick;
+if ($delay < 120) {
 	$BUFFEROUT = 1;	# USB and virtual ports can't test output timing
 }
-print "<185> elapsed time=$err\n";
+if ($BUFFEROUT) {
+	# USB and virtual ports can be different, but stil 4 elements
+	ok(defined $blk, 'blocking byte');
+	ok(defined $in, 'input count');
+	ok(defined $out, 'output count');
+	ok(defined $err, 'error byte');
+	is_bad ($delay > 300, 'skip write timing');
+} else {
+	is($blk, 0, 'blocking bits');
+	is($in, 0, 'input count');
+	is($out, 0, 'output count');
+	is($err, 0, 'error bits');
+	is_bad (($delay < 120) or ($delay > 300), 'write timing');
+}
+print "<185> elapsed time=$delay\n";
+
+$ob->reset_error;
 
 # 373 - 375: "Instant" return for read_interval=0xffffffff
 
 SKIP: {
-    skip "Can't rely on timing and status details", 86 if $BUFFEROUT;
+    skip "Can't rely on timing and status details", 90 if $BUFFEROUT;
+
+    ($blk, $in, $out, $err)=$ob->is_status(0x150);	# test only
+    is($err, 0x150, 'error_bits forced');
+
+    ($blk, $in, $out, $err)=$ob->is_status(0x0f);	# test only
+    is($err, 0x15f, 'error bits add');
+
+    is($ob->reset_error, 0x15f, 'reset_error');
+
+    ($blk, $in, $out, $err)=$ob->is_status;
+    is($err, 0, 'error bits');
 
     $tick=$ob->get_tick_count;
     ($in, $in2) = $ob->read(10);
@@ -856,7 +868,7 @@ is($ob->error_msg(1), 1, 'error_msg(1)');
 # 465 - 516 Test and Normal "lookclear"
 
 $ob->reset_error;
-is($ob->stty_echo(0), 0, 'xon_char');
+is($ob->stty_echo(0), 0, 'stty_echo');
 is ($ob->lookclear("Before\nAfter"), 1, 'lookclear load');
 is ($ob->lookfor, "Before", 'lookfor match in middle');
 

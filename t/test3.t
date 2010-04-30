@@ -379,37 +379,39 @@ use strict 'subs';
 
 is($ob->purge_all, 1, 'purge_all');
 @opts = $ob->status;
-is(scalar @opts, 4, 'status');
+is(scalar (@opts = $ob->status), 4, 'status array');
 
 # for an unconnected port, should be $in=0, $out=0, $blk=1 (no CTS), $err=0
-# USB and virtual ports can be different, but stil 4 elements
-
 ($blk, $in, $out, $err)=@opts;
-# warn "WCB status: $blk, $in, $out, $err\n";
-
-ok(defined $blk, 'blocking bits');
-is($in, 0, 'input bytes');
-is($out, 0, 'output bytes');
-is($err, 0, 'error bytes');
 
 ## 124 - 130: No Handshake, Polled Write
 
 is($ob->handshake("none"), 'none', 'set handshake none');
 
+# A test to check $BUFFEROUT
 $tick=$ob->get_tick_count;
 is($ob->write($line), 180, 'write 180 characters');
 $tock=$ob->get_tick_count;
 
-$err=$tock - $tick;
-if ($err < 120) {
+my $delay=$tock - $tick;
+if ($delay < 120) {
 	$BUFFEROUT = 1;	# USB and virtual ports can't test output timing
 }
 if ($BUFFEROUT) {
-	is_bad ($err > 210, 'skip write timing');
+	# USB and virtual ports can be different, but stil 4 elements
+	ok(defined $blk, 'blocking byte');
+	ok(defined $in, 'input count');
+	ok(defined $out, 'output count');
+	ok(defined $err, 'error byte');
+	is_bad ($delay > 300, 'skip write timing');
 } else {
-	is_bad (($err < 160) or ($err > 210), 'write timing');
+	is($blk, $ob->BM_fCtsHold, 'blocking bit CTS');
+	is($in, 0, 'input count');
+	is($out, 0, 'output count');
+	is($err, 0, 'error bits');
+	is_bad (($delay < 120) or ($delay > 300), 'write timing');
 }
-print "<185> elapsed time=$err\n";
+print "<185> elapsed time=$delay\n";
 
 ok(defined $ob->reset_error, 'reset_error');
 	
