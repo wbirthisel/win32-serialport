@@ -464,7 +464,7 @@ my $CP_format1="SSLLLLLLLLLSSLLLLSA*";			 # rs232
 my $CP_format6="SSLLLLLLLLLSSLLLLLLLLLLLLLLLLLLLLLLLA*"; # modem
 my $CP_format0="SA50LA244";				 # pre-read
 
-my $OVERLAPPEDformat="LLLLL";
+my $OVERLAPPEDformat= (length pack 'P') * 8 == 32 ? "LLLLL" : "QQLLQ";
 my $TIMEOUTformat="LLLLL";
 my $COMSTATformat="LLL";
 my $cfg_file_sig="Win32API::SerialPort_Configuration_File -- DO NOT EDIT --\n";
@@ -636,7 +636,8 @@ sub new {
      $CP_ProvChar_start,
      $CP_Filler)= unpack($CP_format1, $CommProperties);
 
-    if (($CP_Length > 64) and ($self->{"_TYPE"} == PST_RS232)) {
+    # we changed 64 -> 66
+    if (($CP_Length > 66) and ($self->{"_TYPE"} == PST_RS232)) {
         carp "invalid COMMPROP block length= $CP_Length";
         undef $self;
         return;
@@ -765,8 +766,8 @@ sub new {
 					$self->{"_MaxRxQueue"} : LONGsize;
 
     # buffers
-    $self->{"_R_OVERLAP"}	= " "x24;
-    $self->{"_W_OVERLAP"}	= " "x24;
+    $self->{"_R_OVERLAP"}	= " "x32;
+    $self->{"_W_OVERLAP"}	= " "x32;
     $self->{"_TIMEOUT"}		= " "x24;
     $self->{"_RBUF"}		= " "x $RBUF_Size;
 

@@ -1,3 +1,27 @@
+This fork brings 64-bit compatibility to the Perl serial port module thanks to a patch by Christopher Oicles explained here https://rt.cpan.org/Public/Bug/Display.html?id=113337.  This project hasn't had any support or updates to these issues in over 10 years, so we're just forking it and fixing it with a straightforward way to incorporate this into existing projects without a rewrite.  In short: this fork is structured such that existing code will not need to change.  The module name is kept the same and is set up to override the the "Original" Win32 versions by adding these modules with the correct directory structure to an existing project and then in the projects
+scripts, add the directory to @INC.
+
+# Installation
+Clone this project into the root directory of your project.   The only thing needed from this project is ./lib.  You can clone the project into your existing source tree and delete everything except ./lib, or clone the project into a separate directory and copy ./lib into your project.
+
+When done, the directory structure of the project using this project should look as such:
+```
+.
+└───lib
+    ├───Win32
+    └───WIn32API
+```
+
+# Setup
+Add the following to the beginning of your perl script to properly overwrite the CPAN installed version of CommPort.pm
+```
+BEGIN {
+    # add the lib directory to the front of @INC to override Win32API::Commport module from CPAN
+    unshift @INC, './lib';
+}
+```
+
+# Previous Release notes
 Win32::SerialPort and Win32API::CommPort
 VERSION=0.20, 1 April 2010
 VERSION=0.21, 30 April 2010 (Makefile.PL and test improvements)
